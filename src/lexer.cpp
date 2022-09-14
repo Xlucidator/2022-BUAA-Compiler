@@ -121,14 +121,14 @@ void Lexer::lexing() {
 
 
 string Lexer::nextToken() {
-    static string token;
+    string token;
     char c;
 
     while (state != S_END && pos < str.length()) {
         c = str[pos++];
         switch (state) {
             case S_INIT:
-                token = "";
+                //token = "";
                 if (isalpha(c) || c == '_') {
                     token += c;
                     state = S_IDENT;
@@ -155,7 +155,6 @@ string Lexer::nextToken() {
                     token += c;
                     state = S_DDB;
                 }
-
                 break;
 
             case S_MANN:

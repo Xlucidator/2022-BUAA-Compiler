@@ -86,7 +86,6 @@ Lexer::Lexer() {
 void Lexer::refillStr(string& input) {
     str = input;
     pos = 0;
-    state = S_INIT;
     eol = false;
 }
 
@@ -106,6 +105,11 @@ void Lexer::lexing() {
 
 
 string Lexer::nextToken() {
+    if (pos >= str.length()) {
+        eol = true;
+        return "";
+    }
+
     static string token;
     char c;
 

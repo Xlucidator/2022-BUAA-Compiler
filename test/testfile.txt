@@ -1,7 +1,9 @@
 const int array[2] = {1,2};
 
-int main() {
-    int c;
+int main() { /* this is
+an multiline - annotation
+
+*/  int c;
     c = getint();
     printf("output is %d", c);
     return c;

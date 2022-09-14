@@ -11,7 +11,7 @@ using namespace std;
 int main() {
     ifstream ifs;
 
-    ifs.open("../test/testfile.txt", ios::in);
+    ifs.open("testfile.txt", ios::in);
     if (ifs.fail()) {
         cerr << "failed to read!" << endl;
         return -1;

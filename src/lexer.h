@@ -13,16 +13,17 @@
 using namespace std;
 
 #define S_INIT  1
-#define S_ANNO  2
-#define S_IDENT 3
-#define S_STR   4
-#define S_NUM   5
-#define S_DDB   6
-#define S_END   7
+#define S_MANN  2   // no need for LANN (line annotation)
+#define S_IDENT 4
+#define S_STR   5
+#define S_NUM   6
+#define S_DDB   7
+#define S_END   8
 
 
 void doLexicalAnalysis(ifstream& ifs);
 void printWordList();
+void fprintWordList();
 string getTypeStr(CatCode type);
 
 

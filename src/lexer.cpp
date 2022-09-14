@@ -18,10 +18,11 @@ void doLexicalAnalysis(ifstream& ifs) {
     string code_buf;
     Lexer lexer;
     while (getline(ifs, code_buf)) { // '\n' will not be stored in
+        if (code_buf.empty()) continue;
         lexer.refillStr(code_buf);
         lexer.lexing();
     }
-    printWordList();
+    fprintWordList();
 }
 
 
@@ -29,6 +30,21 @@ void printWordList() {
     for (Word& word : wordList) {
         cout << getTypeStr(word.type)  << " " << word.cont << endl;
     }
+}
+
+void fprintWordList() {
+    ofstream ofs;
+    ofs.open("output.txt", ios::out);
+    if (ofs.fail()) {
+        cerr << "failed to write!" << endl;
+        return;
+    }
+
+    for (Word& word : wordList) {
+        ofs << getTypeStr(word.type)  << " " << word.cont << endl;
+    }
+
+    ofs.close();
 }
 
 
@@ -105,11 +121,6 @@ void Lexer::lexing() {
 
 
 string Lexer::nextToken() {
-    if (pos >= str.length()) {
-        eol = true;
-        return "";
-    }
-
     static string token;
     char c;
 
@@ -132,7 +143,9 @@ string Lexer::nextToken() {
                 }
                 else if (c == '/' && str[pos] == '*') {
                     pos += 1;
-                    state = S_ANNO;
+                    state = S_MANN;
+                } else if (c == '/' && str[pos] == '/') {
+                    pos = (int) str.length();
                 }
                 else if (dsg.find(c) != string::npos) {
                     token += c;
@@ -145,7 +158,7 @@ string Lexer::nextToken() {
 
                 break;
 
-            case S_ANNO:
+            case S_MANN:
                 if (c == '*' && pos < str.length() && str[pos] == '/') {
                     pos += 1;
                     state = S_INIT;
@@ -163,7 +176,7 @@ string Lexer::nextToken() {
                 break;
 
             case S_NUM:
-                if (isalpha(c))
+                if (isdigit(c))
                     token += c;
                 else {
                     pos -= 1;

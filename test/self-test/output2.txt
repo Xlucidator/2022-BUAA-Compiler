@@ -1,0 +1,8 @@
+20373585
+test UnaryExp ok
+test MulExp ok
+test AddExp ok
+test RelExp ok
+test EqExp ok!
+test LAndExp ok
+test LOrExp ok!

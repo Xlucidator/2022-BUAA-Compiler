@@ -19,9 +19,7 @@ int main() {
     }
 
     doLexicalAnalysis(ifs);
-
     ifs.close();
-
     doGrammarAnalysis();
 
     return 0;

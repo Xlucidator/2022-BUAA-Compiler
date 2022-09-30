@@ -21,7 +21,7 @@ void doLexicalAnalysis(ifstream& ifs) {
         if (!code_buf.empty())
             lexer.lexing();
     }
-    fprintWordList();
+    // fprintWordList();
 }
 
 

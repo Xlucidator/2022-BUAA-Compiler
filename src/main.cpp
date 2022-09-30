@@ -5,6 +5,7 @@
 #include <fstream>
 #include <cstdio>
 #include "lexer.h"
+#include "parser.h"
 
 using namespace std;
 
@@ -20,6 +21,8 @@ int main() {
     doLexicalAnalysis(ifs);
 
     ifs.close();
+
+    doGrammarAnalysis();
 
     return 0;
 }

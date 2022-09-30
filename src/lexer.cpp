@@ -13,14 +13,13 @@ using namespace std;
 
 vector<Word> wordList;
 
-
 void doLexicalAnalysis(ifstream& ifs) {
     string code_buf;
     Lexer lexer;
     while (getline(ifs, code_buf)) { // '\n' will not be stored in
-        if (code_buf.empty()) continue;
         lexer.refillStr(code_buf);
-        lexer.lexing();
+        if (!code_buf.empty())
+            lexer.lexing();
     }
     fprintWordList();
 }
@@ -97,12 +96,14 @@ Lexer::Lexer() {
     pos = 0;
     state = S_INIT;
     eol = true;
+    lno = 0;
 }
 
 void Lexer::refillStr(string& input) {
     str = input;
     pos = 0;
     eol = false;
+    lno += 1;
 }
 
 void Lexer::lexing() {
@@ -114,6 +115,7 @@ void Lexer::lexing() {
         if (!gettoken.empty()) {
             word.cont = gettoken;
             word.type = getWordType(gettoken);
+            word.lno = lno;
             wordList.push_back(word);
         }
     }

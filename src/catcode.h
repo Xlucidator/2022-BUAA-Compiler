@@ -10,7 +10,9 @@
 using namespace std;
 
 enum struct CatCode {
-    IDENFR = 1,
+    EOL = 0,
+
+    IDENFR,
 
     INT_CON,
     STR_CON,
@@ -56,5 +58,6 @@ enum struct CatCode {
     R_BRACE
 };
 
+string getTypeStr(CatCode type);
 
 #endif //COMPILER_CATCODE_H

@@ -10,6 +10,7 @@
 #include <string>
 #include <iostream>
 #include <map>
+#include <vector>
 using namespace std;
 
 #define S_INIT  1
@@ -24,15 +25,15 @@ using namespace std;
 void doLexicalAnalysis(ifstream& ifs);
 void printWordList();
 void fprintWordList();
-string getTypeStr(CatCode type);
 
 
 class Lexer {
 
 private:
     int state;
-    int pos;
+    int pos;  // current pos in the line
     bool eol;
+    int lno;  // current line of program
     string str;
     const string dsg = "+-*/%;,()[]{}"; // surely be single-divider
     const string ddb = "&|<>=!";        // may lead to double-divider
@@ -124,7 +125,11 @@ public:
 struct Word {
     CatCode type;
     string cont;
+    int lno;
     Word(): type(), cont() {}
+    explicit Word(CatCode c): type(c), cont() {}
 };
+
+extern vector<Word> wordList;
 
 #endif //COMPILER_LEXER_H

@@ -125,7 +125,8 @@ void Parser::parseStmt() {
 
         // 'return' [Exp] ';'
         case CatCode::RETURN_TK:
-            nextWord(); parseExp();
+            if (nextWord().type != CatCode::SEMICN)
+                parseExp();
             if (peek.type != CatCode::SEMICN)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] return: lack ;";
             nextWord();

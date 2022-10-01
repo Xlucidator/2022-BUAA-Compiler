@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <fstream>
+#include <string>
 #include "lexer.h"
 using namespace std;
 
@@ -102,6 +103,9 @@ inline Word Parser::preLook(int offset) {
 
 inline void Parser::parseLOrExp() { // LAndExp { '||' LAndExp }
     parseLAndExp();
+    ofs << "<LOrExp>" << endl;
+    if (peek.type != CatCode::OR)
+        return;
     while (peek.type == CatCode::OR) {
         nextWord(); parseLAndExp();
     }
@@ -110,6 +114,9 @@ inline void Parser::parseLOrExp() { // LAndExp { '||' LAndExp }
 
 inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
     parseEqExp();
+    ofs << "<LAndExp>" << endl;
+    if (peek.type != CatCode::AND)
+        return;
     while (peek.type == CatCode::AND) {
         nextWord(); parseEqExp();
     }
@@ -118,6 +125,9 @@ inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
 
 inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
     parseRelExp();
+    ofs << "<EqExp>" << endl;
+    if (peek.type != CatCode::EQL && peek.type != CatCode::NEQ)
+        return;
     while (peek.type == CatCode::EQL || peek.type == CatCode::NEQ) {
         nextWord(); parseRelExp();
     }
@@ -126,6 +136,11 @@ inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
 
 inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp }
     parseAddExp();
+    ofs << "<RelExp>" << endl;
+    if (peek.type != CatCode::LSS &&
+        peek.type != CatCode::GRE &&
+        peek.type != CatCode::LEQ &&
+        peek.type != CatCode::GEQ ) return;
     while (
             peek.type == CatCode::LSS ||
             peek.type == CatCode::GRE ||
@@ -139,6 +154,9 @@ inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp
 
 inline void Parser::parseAddExp() { // MulExp { ('+' | '−') MulExp }
     parseMulExp();
+    ofs << "<AddExp>" << endl;
+    if (peek.type != CatCode::PLUS && peek.type != CatCode::MINU)
+        return;
     while (peek.type == CatCode::PLUS || peek.type == CatCode::MINU) {
         nextWord(); parseMulExp();
     }
@@ -147,6 +165,10 @@ inline void Parser::parseAddExp() { // MulExp { ('+' | '−') MulExp }
 
 inline void Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
     parseUnaryExp();
+    ofs << "<MulExp>" << endl;
+    if (peek.type != CatCode::MULT &&
+        peek.type != CatCode::DIV  &&
+        peek.type != CatCode::MOD ) return;
     while (
             peek.type == CatCode::MULT ||
             peek.type == CatCode::DIV  ||

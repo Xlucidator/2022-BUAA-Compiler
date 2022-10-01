@@ -111,12 +111,12 @@ while (a1[1] >= 4/2) {
 
 一元表达式 UnaryExp → PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp // 存在即可
     	 // 3种情况均需覆盖,函数调用也需要覆盖FuncRParams的不同情况
-乘除模表达式 MulExp → UnaryExp { ('*' | '/' | '%') UnaryExp } 
-加减表达式 AddExp → MulExp { ('+' | '−') MulExp } // 1.MulExp 2.+ 需覆盖 3.-需覆盖
-关系表达式 RelExp → AddExp { ('<' | '>' | '<=' | '>=') AddExp } 
-相等性表达式 EqExp → RelExp { ('==' | '!=') RelExp } // 1.RelExp 2.== 3.!= 均需覆盖
-逻辑与表达式 LAndExp → EqExp { '&&' EqExp } // 1.EqExp 2.&& 均需覆盖
-逻辑或表达式 LOrExp → LAndExp { '||' LAndExp } // 1.LAndExp 2.|| 均需覆盖
+乘除模表达式 MulExp → UnaryExp { ε | ('*' | '/' | '%') UnaryExp } 
+加减表达式 AddExp → MulExp { ε | ('+' | '−') MulExp } // 1.MulExp 2.+ 需覆盖 3.-需覆盖
+关系表达式 RelExp → AddExp { ε | ('<' | '>' | '<=' | '>=') AddExp } 
+相等性表达式 EqExp → RelExp { ε | ('==' | '!=') RelExp } // 1.RelExp 2.== 3.!= 均需覆盖
+逻辑与表达式 LAndExp → EqExp { ε | '&&' EqExp } // 1.EqExp 2.&& 均需覆盖
+逻辑或表达式 LOrExp → LAndExp { ε | '||' LAndExp } // 1.LAndExp 2.|| 均需覆盖
 
 
 

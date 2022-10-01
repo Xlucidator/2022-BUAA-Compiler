@@ -165,7 +165,7 @@ void Parser::parseStmt() {
         case CatCode::L_PARENT: // PrimaryExp: '(' Exp ')'
         case CatCode::INT_CON : // Number: IntConst
             parseExp();
-            if (nextWord().type != CatCode::SEMICN)
+            if (peek.type != CatCode::SEMICN)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] Exp: lack ;";
             nextWord();
             break;

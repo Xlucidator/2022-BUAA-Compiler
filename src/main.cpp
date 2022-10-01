@@ -20,7 +20,7 @@ int main() {
 
     doLexicalAnalysis(ifs);
     ifs.close();
-    doGrammarAnalysis();
+    doSyntaxAnalysis();
 
     return 0;
 }

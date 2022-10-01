@@ -12,7 +12,7 @@
 #include "lexer.h"
 using namespace std;
 
-void doGrammarAnalysis();
+void doSyntaxAnalysis();
 
 
 class Parser {

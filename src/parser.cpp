@@ -8,7 +8,7 @@
 
 using namespace std;
 
-void doGrammarAnalysis() {
+void doSyntaxAnalysis() {
     if (wordList.empty())
         throw "no word to analysis!";
 

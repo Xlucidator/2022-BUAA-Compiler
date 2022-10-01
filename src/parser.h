@@ -103,40 +103,40 @@ inline Word Parser::preLook(int offset) {
 
 inline void Parser::parseLOrExp() { // LAndExp { '||' LAndExp }
     parseLAndExp();
-    ofs << "<LOrExp>" << endl;
+    !inrecord && ofs << "<LOrExp>" << endl;
     if (peek.type != CatCode::OR)
         return;
     while (peek.type == CatCode::OR) {
         nextWord(); parseLAndExp();
-        ofs << "<LOrExp>" << endl;
+        !inrecord && ofs << "<LOrExp>" << endl;
     }
 }
 
 inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
     parseEqExp();
-    ofs << "<LAndExp>" << endl;
+    !inrecord && ofs << "<LAndExp>" << endl;
     if (peek.type != CatCode::AND)
         return;
     while (peek.type == CatCode::AND) {
         nextWord(); parseEqExp();
-        ofs << "<LAndExp>" << endl;
+        !inrecord && ofs << "<LAndExp>" << endl;
     }
 }
 
 inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
     parseRelExp();
-    ofs << "<EqExp>" << endl;
+    !inrecord && ofs << "<EqExp>" << endl;
     if (peek.type != CatCode::EQL && peek.type != CatCode::NEQ)
         return;
     while (peek.type == CatCode::EQL || peek.type == CatCode::NEQ) {
         nextWord(); parseRelExp();
-        ofs << "<EqExp>" << endl;
+        !inrecord && ofs << "<EqExp>" << endl;
     }
 }
 
 inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp }
     parseAddExp();
-    ofs << "<RelExp>" << endl;
+    !inrecord && ofs << "<RelExp>" << endl;
     if (peek.type != CatCode::LSS &&
         peek.type != CatCode::GRE &&
         peek.type != CatCode::LEQ &&
@@ -148,24 +148,24 @@ inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp
             peek.type == CatCode::GEQ
             ) {
         nextWord(); parseAddExp();
-        ofs << "<RelExp>" << endl;
+        !inrecord && ofs << "<RelExp>" << endl;
     }
 }
 
 inline void Parser::parseAddExp() { // MulExp { ('+' | '−') MulExp }
     parseMulExp();
-    ofs << "<AddExp>" << endl;
+    !inrecord && ofs << "<AddExp>" << endl;
     if (peek.type != CatCode::PLUS && peek.type != CatCode::MINU)
         return;
     while (peek.type == CatCode::PLUS || peek.type == CatCode::MINU) {
         nextWord(); parseMulExp();
-        ofs << "<AddExp>" << endl;
+        !inrecord && ofs << "<AddExp>" << endl;
     }
 }
 
 inline void Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
     parseUnaryExp();
-    ofs << "<MulExp>" << endl;
+    !inrecord && ofs << "<MulExp>" << endl;
     if (peek.type != CatCode::MULT &&
         peek.type != CatCode::DIV  &&
         peek.type != CatCode::MOD ) return;
@@ -175,7 +175,7 @@ inline void Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
             peek.type == CatCode::MOD
             ) {
         nextWord(); parseUnaryExp();
-        ofs << "<MulExp>" << endl;
+        !inrecord && ofs << "<MulExp>" << endl;
     }
 }
 
@@ -183,21 +183,21 @@ inline void Parser::parseUnaryOp() {
     if (peek.type != CatCode::PLUS && peek.type != CatCode::MINU && peek.type != CatCode::NOT)
         throw "unrecognized UnaryOp\n";
     nextWord();
-    ofs << "<UnaryOp>" << endl;
+    !inrecord && ofs << "<UnaryOp>" << endl;
 }
 
 inline void Parser::parseNumber() {
     if (peek.type != CatCode::INT_CON)
         throw "unrecognized Number\n";
     nextWord();
-    ofs << "<Number>" << endl;
+    !inrecord && ofs << "<Number>" << endl;
 }
 
 inline void Parser::parseFuncType() {
     if (peek.type != CatCode::VOID_TK && peek.type != CatCode::INT_TK)
         throw "unrecognized FuncType\n";
     nextWord();
-    ofs << "<FuncType>" << endl;
+    !inrecord && ofs << "<FuncType>" << endl;
 }
 
 #endif //COMPILER_PARSER_H

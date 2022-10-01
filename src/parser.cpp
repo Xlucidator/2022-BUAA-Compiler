@@ -48,7 +48,7 @@ void Parser::parseCompUnit() {
         parseFuncDef();
     }
     parseMainFunc(); // MainFuncDef
-    ofs << "<CompUnit>" << endl;
+    !inrecord && ofs << "<CompUnit>" << endl;
 }
 
 void Parser::parseMainFunc() {
@@ -61,7 +61,7 @@ void Parser::parseMainFunc() {
     if (nextWord().type != CatCode::R_PARENT)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] main: lack )";
     nextWord(); parseBlock();
-    ofs << "<MainFuncDef>" << endl;
+    !inrecord && ofs << "<MainFuncDef>" << endl;
 }
 
 void Parser::parseBlock() {
@@ -72,7 +72,7 @@ void Parser::parseBlock() {
         parseBlockItem();
     }
     nextWord();
-    ofs << "<Block>" << endl;
+    !inrecord && ofs << "<Block>" << endl;
 }
 
 void Parser::parseBlockItem() {
@@ -196,22 +196,22 @@ void Parser::parseStmt() {
 
         default: throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized Stmt";
     }
-    ofs << "<Stmt>" << endl;
+    !inrecord && ofs << "<Stmt>" << endl;
 }
 
 void Parser::parseCond() {
     parseLOrExp();
-    ofs << "<Cond>" << endl;
+    !inrecord && ofs << "<Cond>" << endl;
 }
 
 void Parser::parseExp() {
     parseAddExp();
-    ofs << "<Exp>" << endl;
+    !inrecord && ofs << "<Exp>" << endl;
 }
 
 void Parser::parseConstExp() {
     parseAddExp();
-    ofs << "<ConstExp>" << endl;
+    !inrecord && ofs << "<ConstExp>" << endl;
 }
 
 void Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp
@@ -245,7 +245,7 @@ void Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | Una
             break;
         default: throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized UnaryExp";
     }
-    ofs << "<UnaryExp>" << endl;
+    !inrecord && ofs << "<UnaryExp>" << endl;
 }
 
 void Parser::parseLVal() { // Ident {'[' Exp ']'}
@@ -258,7 +258,7 @@ void Parser::parseLVal() { // Ident {'[' Exp ']'}
             throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: array lack ]";
         nextWord();
     }
-    if (!inrecord) ofs << "<LVal>" << endl;
+    !inrecord &&  ofs << "<LVal>" << endl;
 }
 
 void Parser::parsePrimaryExp() { // '(' Exp ')' | LVal | Number
@@ -283,7 +283,7 @@ void Parser::parsePrimaryExp() { // '(' Exp ')' | LVal | Number
 
         default: throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized PrimaryExp";
     }
-    ofs << "<PrimaryExp>" << endl;
+    !inrecord && ofs << "<PrimaryExp>" << endl;
 }
 
 void Parser::parseConstDecl() { // 'const' BType ConstDef { ',' ConstDef } ';'
@@ -297,7 +297,7 @@ void Parser::parseConstDecl() { // 'const' BType ConstDef { ',' ConstDef } ';'
     if (peek.type != CatCode::SEMICN)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack ;";
     nextWord();
-    ofs << "<ConstDecl>" << endl;
+    !inrecord && ofs << "<ConstDecl>" << endl;
 }
 
 void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
@@ -311,7 +311,7 @@ void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
     if (peek.type != CatCode::ASSIGN)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack =";
     nextWord(); parseConstInitVal();
-    ofs << "<ConstDef>" << endl;
+    !inrecord && ofs << "<ConstDef>" << endl;
 }
 
 void Parser::parseConstInitVal() { // ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'
@@ -328,7 +328,7 @@ void Parser::parseConstInitVal() { // ConstExp | '{' [ ConstInitVal { ',' ConstI
     } else {
         parseConstExp();
     }
-    ofs << "<ConstInitVal>" << endl;
+    !inrecord && ofs << "<ConstInitVal>" << endl;
 }
 
 void Parser::parseVarDecl() { // BType VarDef { ',' VarDef } ';'
@@ -340,7 +340,7 @@ void Parser::parseVarDecl() { // BType VarDef { ',' VarDef } ';'
     if (peek.type != CatCode::SEMICN)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] VarDecl: lack ;";
     nextWord();
-    ofs << "<VarDecl>" << endl;
+    !inrecord && ofs << "<VarDecl>" << endl;
 }
 
 void Parser::parseVarDef() { // Ident { '[' ConstExp ']' } | Ident { '[' ConstExp ']' } '=' InitVal
@@ -354,7 +354,7 @@ void Parser::parseVarDef() { // Ident { '[' ConstExp ']' } | Ident { '[' ConstEx
     if (peek.type == CatCode::ASSIGN) { // ... '=' InitVal
         nextWord(); parseInitVal();
     }
-    ofs << "<VarDef>" << endl;
+    !inrecord && ofs << "<VarDef>" << endl;
 }
 
 void Parser::parseInitVal() { // Exp | '{' [ InitVal { ',' InitVal } ] '}'
@@ -371,7 +371,7 @@ void Parser::parseInitVal() { // Exp | '{' [ InitVal { ',' InitVal } ] '}'
     } else {
         parseExp();
     }
-    ofs << "<InitVal>" << endl;
+    !inrecord && ofs << "<InitVal>" << endl;
 }
 
 void Parser::parseFuncDef() {
@@ -386,7 +386,7 @@ void Parser::parseFuncDef() {
     if (peek.type != CatCode::R_PARENT)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncDef: lack )";
     nextWord(); parseBlock();
-    ofs << "<FuncDef>" << endl;
+    !inrecord && ofs << "<FuncDef>" << endl;
 }
 
 void Parser::parseFuncFParams() {
@@ -394,7 +394,7 @@ void Parser::parseFuncFParams() {
     while (peek.type == CatCode::COMMA) {
         nextWord(); parseFuncFParam();
     }
-    ofs << "<FuncFParams>" << endl;
+    !inrecord && ofs << "<FuncFParams>" << endl;
 }
 
 void Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
@@ -411,7 +411,7 @@ void Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncFParam: mul arrays param lack ] to match [";
         }
     }
-    ofs << "<FuncFParam>" << endl;
+    !inrecord && ofs << "<FuncFParam>" << endl;
 }
 
 void Parser::parseFuncRParams() {
@@ -419,5 +419,5 @@ void Parser::parseFuncRParams() {
     while (peek.type == CatCode::COMMA) {
         nextWord(); parseExp();
     }
-    ofs << "<FuncRParams>" << endl;
+    !inrecord && ofs << "<FuncRParams>" << endl;
 }

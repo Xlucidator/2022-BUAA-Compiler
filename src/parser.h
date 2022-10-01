@@ -108,8 +108,8 @@ inline void Parser::parseLOrExp() { // LAndExp { '||' LAndExp }
         return;
     while (peek.type == CatCode::OR) {
         nextWord(); parseLAndExp();
+        ofs << "<LOrExp>" << endl;
     }
-    ofs << "<LOrExp>" << endl;
 }
 
 inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
@@ -119,8 +119,8 @@ inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
         return;
     while (peek.type == CatCode::AND) {
         nextWord(); parseEqExp();
+        ofs << "<LAndExp>" << endl;
     }
-    ofs << "<LAndExp>" << endl;
 }
 
 inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
@@ -130,8 +130,8 @@ inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
         return;
     while (peek.type == CatCode::EQL || peek.type == CatCode::NEQ) {
         nextWord(); parseRelExp();
+        ofs << "<EqExp>" << endl;
     }
-    ofs << "<EqExp>" << endl;
 }
 
 inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp }
@@ -148,8 +148,8 @@ inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp
             peek.type == CatCode::GEQ
             ) {
         nextWord(); parseAddExp();
+        ofs << "<RelExp>" << endl;
     }
-    ofs << "<RelExp>" << endl;
 }
 
 inline void Parser::parseAddExp() { // MulExp { ('+' | '−') MulExp }
@@ -159,8 +159,8 @@ inline void Parser::parseAddExp() { // MulExp { ('+' | '−') MulExp }
         return;
     while (peek.type == CatCode::PLUS || peek.type == CatCode::MINU) {
         nextWord(); parseMulExp();
+        ofs << "<AddExp>" << endl;
     }
-    ofs << "<AddExp>" << endl;
 }
 
 inline void Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
@@ -175,8 +175,8 @@ inline void Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
             peek.type == CatCode::MOD
             ) {
         nextWord(); parseUnaryExp();
+        ofs << "<MulExp>" << endl;
     }
-    ofs << "<MulExp>" << endl;
 }
 
 inline void Parser::parseUnaryOp() {

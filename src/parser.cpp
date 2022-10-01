@@ -311,6 +311,7 @@ void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
     if (peek.type != CatCode::ASSIGN)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack =";
     nextWord(); parseConstInitVal();
+    ofs << "<ConstDef>" << endl;
 }
 
 void Parser::parseConstInitVal() { // ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'

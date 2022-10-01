@@ -201,7 +201,7 @@ void Parser::parseStmt() {
 
 void Parser::parseCond() {
     parseLOrExp();
-    ofs << "<Exp>" << endl;
+    ofs << "<Cond>" << endl;
 }
 
 void Parser::parseExp() {

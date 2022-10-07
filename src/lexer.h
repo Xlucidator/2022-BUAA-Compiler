@@ -22,7 +22,7 @@ using namespace std;
 #define S_END   8
 
 
-void doLexicalAnalysis(ifstream& ifs);
+void doLexicalAnalysis();
 void printWordList();
 void fprintWordList();
 

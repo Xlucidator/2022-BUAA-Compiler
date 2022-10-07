@@ -13,7 +13,14 @@ using namespace std;
 
 vector<Word> wordList;
 
-void doLexicalAnalysis(ifstream& ifs) {
+void doLexicalAnalysis() {
+    ifstream ifs;
+    ifs.open("testfile.txt", ios::in);
+    if (ifs.fail()) {
+        cerr << "failed to read!" << endl;
+        return;
+    }
+
     string code_buf;
     Lexer lexer;
     while (getline(ifs, code_buf)) { // '\n' will not be stored in
@@ -21,7 +28,8 @@ void doLexicalAnalysis(ifstream& ifs) {
         if (!code_buf.empty())
             lexer.lexing();
     }
-    // fprintWordList();
+
+    ifs.close();
 }
 
 

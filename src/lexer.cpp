@@ -30,6 +30,7 @@ void doLexicalAnalysis() {
     }
 
     ifs.close();
+    // fprintWordList();
 }
 
 
@@ -41,7 +42,7 @@ void printWordList() {
 
 void fprintWordList() {
     ofstream ofs;
-    ofs.open("output.txt", ios::out);
+    ofs.open("output-lexer.txt", ios::out);
     if (ofs.fail()) {
         cerr << "failed to write!" << endl;
         return;
@@ -157,7 +158,7 @@ string Lexer::nextToken() {
                 } else if (c == '/' && str[pos] == '/') {
                     pos = (int) str.length();
                 }
-                else if (dsg.find(c) != string::npos) {
+                else if (dsg.find(c) != string::npos) { // string::size_type position;
                     token += c;
                     state = S_END;
                 }

@@ -84,8 +84,7 @@ public:
 };
 
 inline Word Parser::nextWord() {
-    if (!inrecord)
-        ofs << getTypeStr(peek.type) << " " << peek.cont << endl;
+    !inrecord &&  ofs << getTypeStr(peek.type) << " " << peek.cont << endl;
     // print last one, then peek next
 
     if (cnt >= wordsList.size())

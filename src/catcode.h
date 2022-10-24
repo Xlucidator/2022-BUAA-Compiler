@@ -10,7 +10,8 @@
 using namespace std;
 
 enum struct CatCode {
-    EOL = 0,
+    EOL,
+    SOL,
 
     IDENFR,
 

@@ -10,6 +10,7 @@
 #include <fstream>
 #include <string>
 #include "lexer.h"
+#include "errcode.h"
 using namespace std;
 
 void doSyntaxAnalysis();
@@ -39,6 +40,7 @@ public:
     explicit Parser(vector<Word>& w);
     ~Parser();
     inline Word nextWord();
+    inline Word prevWord();
     inline Word preLook(int offset);
 
     // basic structure
@@ -90,6 +92,14 @@ inline Word Parser::nextWord() {
     if (cnt >= wordsList.size())
         return Word(CatCode::EOL);
     peek = wordsList[cnt++];
+    return peek;
+}
+
+inline Word Parser::prevWord() {
+    if (cnt <= 1)
+        return Word(CatCode::SOL);
+    peek = wordsList[cnt-2];
+    cnt = cnt - 1;
     return peek;
 }
 

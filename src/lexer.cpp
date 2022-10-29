@@ -12,6 +12,7 @@
 using namespace std;
 
 vector<Word> wordList;
+bool Lexer::isprint = false;
 
 void doLexicalAnalysis() {
     ifstream ifs;
@@ -30,7 +31,9 @@ void doLexicalAnalysis() {
     }
 
     ifs.close();
-    // fprintWordList();
+
+    if (Lexer::isprint)
+        fprintWordList();
 }
 
 

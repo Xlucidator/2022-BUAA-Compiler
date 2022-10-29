@@ -39,6 +39,7 @@ private:
     const string ddb = "&|<>=!";        // may lead to double-divider
 
 public:
+    static bool isprint;
     const map<string, CatCode> token2Catcode = {
             {"main"    , CatCode::MAIN_TK    },
             {"const"   , CatCode::CONST_TK   },

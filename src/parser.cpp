@@ -31,16 +31,17 @@ void doSyntaxAnalysis() {
     } catch (string& err_str) {
         cout << err_str << endl;
     }
-
 }
 
 
 /*========================= class Parser =========================*/
 Parser::Parser(vector<Word> &w): wordsList(w), cnt(1), peek(w[0]) {
-    ofs.open("output.txt", ios::out);
-    if (ofs.fail()) {
-        cerr << "failed to write!" << endl;
-        return;
+    if (isprint) {
+        ofs.open("output.txt", ios::out);
+        if (ofs.fail()) {
+            cerr << "failed to write!" << endl;
+            return;
+        }
     }
 }
 
@@ -61,7 +62,7 @@ void Parser::parseCompUnit() {
         parseFuncDef();
     }
     parseMainFunc(); // MainFuncDef
-    isprint && !inrecord && ofs << "<CompUnit>" << endl;
+    genOutput("<CompUnit>");
 }
 
 void Parser::parseMainFunc() {
@@ -80,7 +81,7 @@ void Parser::parseMainFunc() {
         nextWord();
     }
     parseBlock(true, params);
-    isprint && !inrecord && ofs << "<MainFuncDef>" << endl;
+    genOutput("<MainFuncDef>");
 }
 
 void Parser::parseBlock(bool needReturnValue, vector<Param>& funcParams) {  // init function block
@@ -103,7 +104,7 @@ void Parser::parseBlock(bool needReturnValue, vector<Param>& funcParams) {  // i
         ErrorHandler::respond(ErrCode::INT_FUNC_RETURN_VOID, peek.lno);                     // Error: g
     }
     nextWord();
-    isprint && !inrecord && ofs << "<Block>" << endl;
+    genOutput("<Block>");
 
     /* exit a block: switch back to previous context */
     curContext = curContext->getPreContext();
@@ -127,7 +128,7 @@ void Parser::parseBlock(bool inLoop) {  // generate normal block and so on
         }
     }
     nextWord();
-    isprint && !inrecord && ofs << "<Block>" << endl;
+    genOutput("<Block>");
 
     /* exit a block: switch back to previous context */
     curContext = curContext->getPreContext();
@@ -337,25 +338,25 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
         default:
             throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized Stmt";
     }
-    isprint && !inrecord && ofs << "<Stmt>" << endl;
+    genOutput("<Stmt>");
     return returnCheck;
 }
 
 void Parser::parseCond() {
     parseLOrExp();
-    isprint && !inrecord && ofs << "<Cond>" << endl;
+    genOutput("<Cond>");
 }
 
 Param Parser::parseExp() {
     Param param;
     param = parseAddExp();
-    isprint && !inrecord && ofs << "<Exp>" << endl;
+    genOutput("<Exp>");
     return param;
 }
 
 void Parser::parseConstExp() {
     parseAddExp();
-    isprint && !inrecord && ofs << "<ConstExp>" << endl;
+    genOutput("<ConstExp>");
 }
 
 Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp
@@ -438,7 +439,7 @@ Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | Un
         default:
             throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized UnaryExp";
     }
-    isprint && !inrecord && ofs << "<UnaryExp>" << endl;
+    genOutput("<UnaryExp>");
     return param;
 }
 
@@ -460,7 +461,7 @@ IdentItem* Parser::parseLVal(vector<int>* offsets) { // Ident {'[' Exp ']'}
             nextWord();
         }
     }
-    !inrecord &&  ofs << "<LVal>" << endl;
+    genOutput("<LVal>");
     return identItem;
 }
 
@@ -497,7 +498,7 @@ Param Parser::parsePrimaryExp() { // '(' Exp ')' | LVal | Number
         default:
             throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized PrimaryExp";
     }
-    isprint && !inrecord && ofs << "<PrimaryExp>" << endl;
+    genOutput("<PrimaryExp>");
     return param;  //
 }
 
@@ -515,7 +516,7 @@ void Parser::parseConstDecl() { // 'const' BType ConstDef { ',' ConstDef } ';'
     } else {
         nextWord();
     }
-    isprint && !inrecord && ofs << "<ConstDecl>" << endl;
+    genOutput("<ConstDecl>");
 }
 
 void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
@@ -534,7 +535,7 @@ void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
     if (peek.type != CatCode::ASSIGN)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack =";
     nextWord(); parseConstInitVal();
-    isprint && !inrecord && ofs << "<ConstDef>" << endl;
+    genOutput("<ConstDef>");
 }
 
 void Parser::parseConstInitVal() { // ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'
@@ -551,7 +552,7 @@ void Parser::parseConstInitVal() { // ConstExp | '{' [ ConstInitVal { ',' ConstI
     } else {
         parseConstExp();
     }
-    isprint && !inrecord && ofs << "<ConstInitVal>" << endl;
+    genOutput("<ConstInitVal>");
 }
 
 void Parser::parseVarDecl() { // BType VarDef { ',' VarDef } ';'
@@ -566,7 +567,7 @@ void Parser::parseVarDecl() { // BType VarDef { ',' VarDef } ';'
     } else {
         nextWord();
     }
-    isprint && !inrecord && ofs << "<VarDecl>" << endl;
+    genOutput("<VarDecl>");
 }
 
 void Parser::parseVarDef() { // Ident { '[' ConstExp ']' } | Ident { '[' ConstExp ']' } '=' InitVal
@@ -585,7 +586,7 @@ void Parser::parseVarDef() { // Ident { '[' ConstExp ']' } | Ident { '[' ConstEx
     if (peek.type == CatCode::ASSIGN) { // ... '=' InitVal
         nextWord(); parseInitVal();
     }
-    isprint && !inrecord && ofs << "<VarDef>" << endl;
+    genOutput("<VarDef>");
 }
 
 void Parser::parseInitVal() { // Exp | '{' [ InitVal { ',' InitVal } ] '}'
@@ -602,7 +603,7 @@ void Parser::parseInitVal() { // Exp | '{' [ InitVal { ',' InitVal } ] '}'
     } else {
         parseExp();
     }
-    isprint && !inrecord && ofs << "<InitVal>" << endl;
+    genOutput("<InitVal>");
 }
 
 void Parser::parseFuncDef() {
@@ -632,7 +633,7 @@ void Parser::parseFuncDef() {
         nextWord();
     }
     parseBlock(ftype != Type::VOID, params);
-    isprint && !inrecord && ofs << "<FuncDef>" << endl;
+    genOutput("<FuncDef>");
 }
 
 vector<Param> Parser::parseFuncFParams() {
@@ -651,7 +652,7 @@ vector<Param> Parser::parseFuncFParams() {
             para_names.insert(param.name);
         }
     }
-    isprint && !inrecord && ofs << "<FuncFParams>" << endl;
+    genOutput("<FuncFParams>");
     return params;
 }
 
@@ -686,7 +687,7 @@ Param Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
             }
         }
     }
-    isprint && !inrecord && ofs << "<FuncFParam>" << endl;
+    genOutput("<FuncFParam>");
     return param;
 }
 
@@ -697,6 +698,6 @@ vector<Param> Parser::parseFuncRParams() {
         nextWord();
         params.push_back(parseExp());
     }
-    isprint && !inrecord && ofs << "<FuncRParams>" << endl;
+    genOutput("<FuncRParams>");
     return params;
 }

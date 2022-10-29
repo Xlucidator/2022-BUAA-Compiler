@@ -621,17 +621,22 @@ void Parser::parseFuncDef() {
     if (nextWord().type != CatCode::L_PARENT)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncDef: lack (";
     if (nextWord().type != CatCode::R_PARENT) {
-        params = parseFuncFParams();
+        /* check whether it has FuncFParams, or just lack ')' */
+        if (peek.type != CatCode::L_BRACE) {    // has FuncFParams
+            params = parseFuncFParams();
+        }
     }
-
-    curContext->addFunc(fname, ftype, params, f_lno);
-
-    if (peek.type != CatCode::R_PARENT) {
+    if (peek.type != CatCode::R_PARENT) {   // must be lack ')' now
         /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncDef: lack )"; */
         ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);                     // Error: j
     } else {
         nextWord();
     }
+
+    /* got full function head so we can add it to the current symbol table */
+    curContext->addFunc(fname, ftype, params, f_lno);
+
+    /* parse function block and generate new symbol table */
     parseBlock(ftype != Type::VOID, params);
     genOutput("<FuncDef>");
 }

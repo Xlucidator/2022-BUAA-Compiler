@@ -208,7 +208,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
             if (nextWord().type != CatCode::SEMICN) {
                 /* detect whether there is an Exp after return, or just lack ; */
                 bool hasExp = true;
-                snapshot();
+                snapshot(); // TODO: maybe it's not necessary to  rehearse
                     try {
                         parseExp();
                     } catch (string& err_str) {
@@ -393,7 +393,7 @@ Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | Un
                 if (nextWord().type != CatCode::R_PARENT) {
                     /* detect whether it's a FuncRParams, or just lack ')' */
                     bool hasFuncRParams = true;
-                    snapshot();
+                    snapshot(); // TODO: maybe it's not necessary to  rehearse
                         try {
                             parseFuncRParams();
                         } catch (string& err_string) {

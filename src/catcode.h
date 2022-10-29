@@ -49,13 +49,13 @@ enum struct CatCode {
     NEQ,
 
     ASSIGN,
-    SEMICN,
-    COMMA,
-    L_PARENT,
+    SEMICN,     // ';'
+    COMMA,      // ','
+    L_PARENT,   // '('
     R_PARENT,
-    L_BRACK,
+    L_BRACK,    // '['
     R_BRACK,
-    L_BRACE,
+    L_BRACE,    // '{'
     R_BRACE
 };
 

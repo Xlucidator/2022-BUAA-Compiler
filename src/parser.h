@@ -207,14 +207,14 @@ inline Param Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
 
 inline void Parser::parseUnaryOp() {
     if (peek.type != CatCode::PLUS && peek.type != CatCode::MINU && peek.type != CatCode::NOT)
-        throw "unrecognized UnaryOp\n";
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized UnaryOp";
     nextWord();
     genOutput("<UnaryOp>");
 }
 
 inline void Parser::parseNumber() {
     if (peek.type != CatCode::INT_CON)
-        throw "unrecognized Number\n";
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized Number";
     nextWord();
     genOutput("<Number>");
 }
@@ -222,7 +222,7 @@ inline void Parser::parseNumber() {
 inline Type Parser::parseBType() {
     Type type;
     if (peek.type != CatCode::INT_TK)
-        throw "unrecognized BType\n";
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized BType";
     type = Type::INT;
     nextWord();
     return type;
@@ -231,7 +231,7 @@ inline Type Parser::parseBType() {
 inline Type Parser::parseFuncType() {
     Type rtype;
     if (peek.type != CatCode::VOID_TK && peek.type != CatCode::INT_TK)
-        throw "unrecognized FuncType\n";
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized FuncType";
     rtype = (peek.type == CatCode::VOID_TK) ? Type::VOID : Type::INT;
     nextWord();
     genOutput("<FuncType>");

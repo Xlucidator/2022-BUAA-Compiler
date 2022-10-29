@@ -7,6 +7,7 @@
 
 
 #include <vector>
+#include <stack>
 #include <fstream>
 #include <string>
 #include "lexer.h"
@@ -22,24 +23,32 @@ class Parser {
 private:
     vector<Word> wordsList;
     int cnt;
-    int record = -1;
-    bool inrecord = false;
     Word peek;
     ofstream ofs;
-
     bool isprint = false;
 
+    stack<int> records; // enabled snapshot in record
+    bool inrecord = false;
+
     void snapshot() { // take a snapshot, from which each parseXX become virtual
-        record = cnt;
-        inrecord = true;
-        ErrorHandler::inEffect = false;
+        records.push(cnt);
+        inrecord = !records.empty();
+        if (inrecord) {
+            ErrorHandler::inEffect = false;
+        }
     }
 
-    void recover() {  // must be called after snapshot, or nothing will be print out
-        cnt = record;
-        peek = wordsList[record - 1];
-        inrecord = false;
-        ErrorHandler::inEffect = true;
+    void recover() {  // must be called after snapshot
+        if (inrecord) {
+            cnt = records.top();
+            peek = wordsList[cnt - 1];
+            records.pop();
+            inrecord = !records.empty();
+            if (!inrecord) {
+                // only out of record can ErrorHandle came to effect
+                ErrorHandler::inEffect = true;
+            }
+        }
     }
 
     void genOutput(string&& tar) {

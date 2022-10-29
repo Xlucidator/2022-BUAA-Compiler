@@ -378,7 +378,7 @@ Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | Un
                 if (funcItem == nullptr) {
                     ErrorHandler::respond(ErrCode::UNDEFINE_IDENT, peek.lno);               // Error: c
                 } else {
-                    param.type = funcItem->type; // in fact, it'll absolutely be INT
+                    param.type = funcItem->type;
                 }
 
                 if (nextWord().type !=CatCode::L_PARENT)
@@ -420,7 +420,9 @@ Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | Un
                     ErrorHandler::respond(ErrCode::UNMATCHED_FPARAM_NUM, func_lno);
                 } else {
                     for (int i = 0; i < FParams.size(); ++i) {
-                        if (FParams[i].dim.size() != RParams[i].dim.size()) {
+                        if ((FParams[i].type       != RParams[i].type) ||
+                            (FParams[i].dim.size() != RParams[i].dim.size())
+                            ) {
                             ErrorHandler::respond(ErrCode::UNMATCHED_FPARAM_TYPE, func_lno);
                             break;
                         }

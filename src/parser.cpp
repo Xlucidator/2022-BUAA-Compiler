@@ -4,13 +4,26 @@
 
 #include "parser.h"
 #include "catcode.h"
+#include "symbol.h"
+#include "errcode.h"
+#include <set>
 #include <iostream>
 
 using namespace std;
 
+unsigned int no_cnt = 0;
+SymbolTable* curContext;
+
+ofstream ErrorHandler::efs("error.txt", ios::out);  // NOLINT
+bool     ErrorHandler::inEffect = true;
+
+
 void doSyntaxAnalysis() {
     if (wordList.empty())
         throw "no word to analysis!";
+
+    SymbolTable globalTable;
+    curContext = &globalTable;
 
     Parser parser(wordList);
     try {
@@ -48,34 +61,80 @@ void Parser::parseCompUnit() {
         parseFuncDef();
     }
     parseMainFunc(); // MainFuncDef
-    !inrecord && ofs << "<CompUnit>" << endl;
+    isprint && !inrecord && ofs << "<CompUnit>" << endl;
 }
 
 void Parser::parseMainFunc() {
+    vector<Param> params;
+
     if (peek.type != CatCode::INT_TK)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] main: lack int";
     if (nextWord().type != CatCode::MAIN_TK)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] main: lack main";
     if (nextWord().type != CatCode::L_PARENT)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] main: lack (";
-    if (nextWord().type != CatCode::R_PARENT)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] main: lack )";
-    nextWord(); parseBlock();
-    !inrecord && ofs << "<MainFuncDef>" << endl;
+    if (nextWord().type != CatCode::R_PARENT) {
+        /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] main: lack )"; */
+        ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);
+    } else {
+        nextWord();
+    }
+    parseBlock(true, params);
+    isprint && !inrecord && ofs << "<MainFuncDef>" << endl;
 }
 
-void Parser::parseBlock() {
+void Parser::parseBlock(bool needReturnValue, vector<Param>& funcParams) {  // init function block
     if (peek.type != CatCode::L_BRACE)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] block: not a {";
+
+    /* enter a block: switch to a new context */
+    auto funcScope = new SymbolTable(curContext, funcParams, needReturnValue);
+    curContext = funcScope;
+
+    ReturnCheck returnCheck;
     nextWord();
     while (peek.type != CatCode::R_BRACE) {
-        parseBlockItem();
+        returnCheck = parseBlockItem();
+        if (!needReturnValue && returnCheck.hasReturnValue) {
+            ErrorHandler::respond(ErrCode::VOID_FUNC_RETURN_INT, returnCheck.lno);          // Error: f
+        }
+    }
+    if (needReturnValue && !returnCheck.isReTurnStmt) {
+        ErrorHandler::respond(ErrCode::INT_FUNC_RETURN_VOID, peek.lno);                     // Error: g
     }
     nextWord();
-    !inrecord && ofs << "<Block>" << endl;
+    isprint && !inrecord && ofs << "<Block>" << endl;
+
+    /* exit a block: switch back to previous context */
+    curContext = curContext->getPreContext();
+    delete funcScope;
 }
 
-void Parser::parseBlockItem() {
+void Parser::parseBlock(bool inLoop) {  // generate normal block and so on
+    if (peek.type != CatCode::L_BRACE)
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] block: not a {";
+
+    /* enter a block: switch to a new context */
+    auto blockScope = new SymbolTable(curContext, inLoop);
+    curContext = blockScope;
+
+    ReturnCheck returnCheck;
+    nextWord();
+    while (peek.type != CatCode::R_BRACE) {
+        returnCheck = parseBlockItem();
+        if (!curContext->isNeedReturn() && returnCheck.hasReturnValue) {
+            ErrorHandler::respond(ErrCode::VOID_FUNC_RETURN_INT, returnCheck.lno);
+        }
+    }
+    nextWord();
+    isprint && !inrecord && ofs << "<Block>" << endl;
+
+    /* exit a block: switch back to previous context */
+    curContext = curContext->getPreContext();
+    delete blockScope;
+}
+
+ReturnCheck Parser::parseBlockItem() {
     switch(peek.type) {
         // Decl
         case CatCode::CONST_TK :
@@ -86,22 +145,29 @@ void Parser::parseBlockItem() {
             break;
 
         // Stmt
-        default: parseStmt();
+        default:
+            return parseStmt(false);
     }
+    return ReturnCheck{};
 }
 
-void Parser::parseStmt() {
+ReturnCheck Parser::parseStmt(bool inLoop) {
+    ReturnCheck returnCheck;
     switch (peek.type) {
         // 'if' '(' Cond ')' Stmt [ 'else' Stmt ]
         case CatCode::IF_TK :
             if (nextWord().type != CatCode::L_PARENT)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] if: lack (";
             nextWord(); parseCond();
-            if (peek.type != CatCode::R_PARENT)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] if: lack )";
-            nextWord(); parseStmt();
+            if (peek.type != CatCode::R_PARENT) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] if: lack )"; */
+                ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);             // Error: j
+            } else {
+                nextWord();
+            }
+            parseStmt(false);
             if (peek.type == CatCode::ELSE_TK) {
-                nextWord(); parseStmt();
+                nextWord(); parseStmt(false);
             }
             break;
 
@@ -109,49 +175,101 @@ void Parser::parseStmt() {
         case CatCode::WHILE_TK :
             if (nextWord().type != CatCode::L_PARENT)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] while: lack (";
-            nextWord(); parseCond();
-            if (peek.type != CatCode::R_PARENT)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] while: lack )";
-            nextWord(); parseStmt();
+            nextWord();
+            parseCond();
+            if (peek.type != CatCode::R_PARENT) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] while: lack )"; */
+                ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);             // Error: j
+            } else {
+                nextWord();
+            }
+            parseStmt(true);
             break;
 
         // 'break' ';' | 'continue' ';'
         case CatCode::BREAK_TK :
         case CatCode::CONTINUE_TK :
-            if (nextWord().type != CatCode::SEMICN)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] break/continue: lack ;";
-            nextWord();
+            if (!curContext->isInLoop()) {
+                ErrorHandler::respond(ErrCode::BREAK_CONTINUE_OUTLOOP, peek.lno);           // Error: m
+            }
+            if (nextWord().type != CatCode::SEMICN) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] break/continue: lack ;"; */
+                ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);            // Error: i
+            } else {
+                nextWord();
+            }
             break;
 
         // 'return' [Exp] ';'
         case CatCode::RETURN_TK:
-            if (nextWord().type != CatCode::SEMICN)
-                parseExp();
-            if (peek.type != CatCode::SEMICN)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] return: lack ;";
-            nextWord();
+            returnCheck.lno = peek.lno;
+            returnCheck.isReTurnStmt = true;
+            if (nextWord().type != CatCode::SEMICN) {
+                /* detect whether there is an Exp after return, or just lack ; */
+                bool hasExp = true;
+                snapshot();
+                    try {
+                        parseExp();
+                    } catch (string& err_str) {
+                        hasExp = false;
+                    }
+                recover();
+
+                if (hasExp) {
+                    returnCheck.hasReturnValue = true;
+                    parseExp();
+                }
+            }
+            if (peek.type != CatCode::SEMICN) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] return: lack ;"; */
+                ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);            // Error: i
+            } else {
+                nextWord();
+            }
             break;
 
         // 'printf''('FormatString{','Exp}')'';'
-        case CatCode::PRINTF_TK:
+        case CatCode::PRINTF_TK: {
+            int printf_lno = peek.lno;
             if (nextWord().type != CatCode::L_PARENT)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack (";
             if (nextWord().type != CatCode::STR_CON)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack format-string";
-            nextWord();
-            while (peek.type == CatCode::COMMA) {
-                nextWord(); parseExp();
+
+            int format_char_cnt = 0;
+            if (!ErrorHandler::checkFormatString(peek.cont, format_char_cnt)) {
+                ErrorHandler::respond(ErrCode::INVALID_FSTRING, printf_lno);
             }
-            if (peek.type != CatCode::R_PARENT)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack )";
-            if (nextWord().type != CatCode::SEMICN)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack ;";
             nextWord();
+
+            int exp_cnt = 0;
+            while (peek.type == CatCode::COMMA) {
+                nextWord();
+                parseExp();
+                exp_cnt += 1;
+            }
+            if (format_char_cnt != exp_cnt) {
+                ErrorHandler::respond(ErrCode::UNMATCHED_FORMAT_CHAR, printf_lno);
+            }
+
+            if (peek.type != CatCode::R_PARENT) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack )"; */
+                ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);             // Error: j
+            } else {
+                nextWord();
+            }
+            if (peek.type != CatCode::SEMICN) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack ;"; */
+                ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);            // Error: i
+            } else {
+                nextWord();
+            }
             break;
+        }
 
         // Block
         case CatCode::L_BRACE:
-            parseBlock();
+            parseBlock(inLoop);
             break;
 
         // ';'
@@ -165,108 +283,196 @@ void Parser::parseStmt() {
         case CatCode::L_PARENT: // PrimaryExp: '(' Exp ')'
         case CatCode::INT_CON : // Number: IntConst
             parseExp();
-            if (peek.type != CatCode::SEMICN)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] Exp: lack ;";
-            nextWord();
+            if (peek.type != CatCode::SEMICN) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] Exp: lack ;"; */
+                ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);            // Error: i
+            } else {
+                nextWord();
+            }
             break;
         // Exp ';' / LVal '=' xxx ';'
         case CatCode::IDENFR:
             if (preLook(1).type == CatCode::L_PARENT) // Exp ';' (Ident() function)
                 parseExp();
             else {
-                snapshot(); parseLVal();
-                if (peek.type == CatCode::ASSIGN) { // LVal '='
-                    recover();
-                    parseLVal();
-                    if (nextWord().type == CatCode::GETINT_TK) {
+                /* detect whether it's 'LVal =' or 'Exp;' */
+                bool lval_assign;
+                snapshot();
+                    parseLVal(nullptr);
+                    lval_assign = (peek.type == CatCode::ASSIGN);
+                recover();
+
+                if (lval_assign) { // LVal '='
+                    /* check is modifiable */
+                    IdentItem* identItem = parseLVal(nullptr);
+                    if (identItem != nullptr && !identItem->modifiable) {
+                        ErrorHandler::respond(ErrCode::ASSIGN_UNMODIFIABLE_LVAL, preLook(-1).lno);  // Error: h
+                    }
+
+                    if (nextWord().type == CatCode::GETINT_TK) {    // LVal '=' 'getint' '(' ')' ';'
                         if (nextWord().type != CatCode::L_PARENT)
                             throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal = getint: lack (";
-                        if (nextWord().type != CatCode::R_PARENT)
-                            throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal = getint: lack )";
-                        nextWord();
-                    } else parseExp();
-                } else {                        // Exp ';'
-                    recover();
+                        if (nextWord().type != CatCode::R_PARENT) {
+                            /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal = getint: lack )"; */
+                            ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno); // Error: j
+                        } else {
+                            nextWord();
+                        }
+                    } else {                                        // LVal '=' 'Exp' ';'
+                        parseExp();
+                    }
+                } else {            // Exp ';'
                     parseExp();
                 }
             }
-            if (peek.type != CatCode::SEMICN)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] Exp / LVal= : lack ;";
-            nextWord();
+            /* deal with ';' together */
+            if (peek.type != CatCode::SEMICN) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] Exp / LVal= : lack ;"; */
+                ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);            // Error: i
+            } else {
+                nextWord();
+            }
             break;
 
-        default: throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized Stmt";
+        default:
+            throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized Stmt";
     }
-    !inrecord && ofs << "<Stmt>" << endl;
+    isprint && !inrecord && ofs << "<Stmt>" << endl;
+    return returnCheck;
 }
 
 void Parser::parseCond() {
     parseLOrExp();
-    !inrecord && ofs << "<Cond>" << endl;
+    isprint && !inrecord && ofs << "<Cond>" << endl;
 }
 
-void Parser::parseExp() {
-    parseAddExp();
-    !inrecord && ofs << "<Exp>" << endl;
+Param Parser::parseExp() {
+    Param param;
+    param = parseAddExp();
+    isprint && !inrecord && ofs << "<Exp>" << endl;
+    return param;
 }
 
 void Parser::parseConstExp() {
     parseAddExp();
-    !inrecord && ofs << "<ConstExp>" << endl;
+    isprint && !inrecord && ofs << "<ConstExp>" << endl;
 }
 
-void Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp
+Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp
+    Param param;
     switch (peek.type) {
         // UnaryOp UnaryExp
         case CatCode::PLUS:
         case CatCode::MINU:
         case CatCode::NOT :
             parseUnaryOp();
-            parseUnaryExp();
+            param = parseUnaryExp();
             break;
 
         // Ident
         case CatCode::IDENFR:
             if (preLook(1).type == CatCode::L_PARENT) { // Ident '(' [FuncRParams] ')'
-                nextWord();
-                if (nextWord().type != CatCode::R_PARENT) {
-                    parseFuncRParams();
-                    if (peek.type != CatCode::R_PARENT)
-                        throw "[" + to_string(peek.lno) + " " + peek.cont + "] function call: lack )";
+                FuncItem* funcItem = curContext->getFunc(peek.cont);
+                int func_lno = peek.lno;
+                if (funcItem == nullptr) {
+                    ErrorHandler::respond(ErrCode::UNDEFINE_IDENT, peek.lno);               // Error: c
+                } else {
+                    param.type = funcItem->type; // in fact, it'll absolutely be INT
                 }
-                nextWord();
-            } else {
-                parsePrimaryExp();
+
+                if (nextWord().type !=CatCode::L_PARENT)
+                    throw "[" + to_string(peek.lno) + " " + peek.cont + "] function call: lack (";
+
+                vector<Param> FParams;
+                if (funcItem != nullptr) {
+                    FParams = funcItem->params;
+                }
+
+                vector<Param> RParams;
+                if (nextWord().type != CatCode::R_PARENT) {
+                    /* detect whether it's a FuncRParams, or just lack ')' */
+                    bool hasFuncRParams = true;
+                    snapshot();
+                        try {
+                            parseFuncRParams();
+                        } catch (string& err_string) {
+                            hasFuncRParams = false;
+                        }
+                    recover();
+
+                    if (hasFuncRParams) {   // has a FuncRParams
+                        RParams = parseFuncRParams();
+                        if (peek.type != CatCode::R_PARENT) {
+                            ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno); // Error: j
+                        } else {
+                            nextWord();
+                        }
+                    } else { // has no FuncRParams but lack ')'
+                        ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);     // Error: j
+                    }
+                } else { // has no FuncRParams and has ')'
+                    nextWord();
+                }
+
+                /* check whether function params' number & type is matched */
+                if (FParams.size() != RParams.size()) {
+                    ErrorHandler::respond(ErrCode::UNMATCHED_FPARAM_NUM, func_lno);
+                } else {
+                    for (int i = 0; i < FParams.size(); ++i) {
+                        if (FParams[i].dim.size() != RParams[i].dim.size()) {
+                            ErrorHandler::respond(ErrCode::UNMATCHED_FPARAM_TYPE, func_lno);
+                            break;
+                        }
+                    }
+                }
+            } else {  // PrimaryExp
+                param = parsePrimaryExp();
             }
             break;
 
         case CatCode::L_PARENT:
         case CatCode::INT_CON :
-            parsePrimaryExp();
+            param = parsePrimaryExp();
             break;
-        default: throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized UnaryExp";
+
+        default:
+            throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized UnaryExp";
     }
-    !inrecord && ofs << "<UnaryExp>" << endl;
+    isprint && !inrecord && ofs << "<UnaryExp>" << endl;
+    return param;
 }
 
-void Parser::parseLVal() { // Ident {'[' Exp ']'}
+IdentItem* Parser::parseLVal(vector<int>* offsets) { // Ident {'[' Exp ']'}
     if (peek.type != CatCode::IDENFR)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: lack Ide";
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: lack Ident";
+    IdentItem* identItem = curContext->getIdent(peek.cont);
+    if (identItem == nullptr) {
+        ErrorHandler::respond(ErrCode::UNDEFINE_IDENT, peek.lno);                           // Error: c
+    }
     nextWord();
     while (peek.type == CatCode::L_BRACK) {
         nextWord(); parseExp();
-        if (peek.type != CatCode::R_BRACK)
-            throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: array lack ]";
-        nextWord();
+        if (offsets != nullptr) offsets->push_back(0);
+        if (peek.type != CatCode::R_BRACK) {
+            /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: array lack ]"; */
+            ErrorHandler::respond(ErrCode::LACK_R_BRACK, preLook(-1).lno);                  // Error: k
+        } else {                              /* in case "a[3][2" with no ']' and ';' */
+            nextWord();
+        }
     }
     !inrecord &&  ofs << "<LVal>" << endl;
+    return identItem;
 }
 
-void Parser::parsePrimaryExp() { // '(' Exp ')' | LVal | Number
+Param Parser::parsePrimaryExp() { // '(' Exp ')' | LVal | Number
+    Param param;
+    IdentItem* identItem;
+    vector<int> off_selects;    // fake now
     switch (peek.type) {
         // '(' Exp ')'
         case CatCode::L_PARENT :
-            nextWord(); parseExp();
+            nextWord();
+            param = parseExp();
             if (peek.type != CatCode::R_PARENT)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] PrimaryExp-(Exp): lack )";
             nextWord();
@@ -274,45 +480,61 @@ void Parser::parsePrimaryExp() { // '(' Exp ')' | LVal | Number
 
         // Number
         case CatCode::INT_CON :
+            param.type = Type::INT;
             parseNumber();
             break;
 
         // LVal
         case CatCode::IDENFR :
-            parseLVal();
+            identItem = parseLVal(&off_selects);
+            if (identItem != nullptr) {
+                param.type = identItem->type;
+                for (auto i = off_selects.size(); i < identItem->dim.size(); ++i)
+                    param.dim.push_back(identItem->dim[i]);
+            }
             break;
 
-        default: throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized PrimaryExp";
+        default:
+            throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized PrimaryExp";
     }
-    !inrecord && ofs << "<PrimaryExp>" << endl;
+    isprint && !inrecord && ofs << "<PrimaryExp>" << endl;
+    return param;  //
 }
 
 void Parser::parseConstDecl() { // 'const' BType ConstDef { ',' ConstDef } ';'
     if (peek.type != CatCode::CONST_TK)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack const\n"; // unnecesry
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack const\n"; // unnecessary
     if (nextWord().type != CatCode::INT_TK)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack BType(int)";
     do {
         nextWord(); parseConstDef();
     } while (peek.type == CatCode::COMMA);
-    if (peek.type != CatCode::SEMICN)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack ;";
-    nextWord();
-    !inrecord && ofs << "<ConstDecl>" << endl;
+    if (peek.type != CatCode::SEMICN) {
+        /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack ;"; */
+        ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);                    // Error: i
+    } else {
+        nextWord();
+    }
+    isprint && !inrecord && ofs << "<ConstDecl>" << endl;
 }
 
 void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
     if (peek.type != CatCode::IDENFR)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack IDent";
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack Ident";
+    IdentItem* identItem = curContext->addIdent(peek, false);
     while (nextWord().type == CatCode::L_BRACK) {
         nextWord(); parseConstExp();
-        if (peek.type != CatCode::R_BRACK)
-            throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: array lack ] to match [";
+        if (identItem != nullptr) identItem->dim.push_back(0);  // update dim
+        if (peek.type != CatCode::R_BRACK) {
+            /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: array lack ] to match ["; */
+            ErrorHandler::respond(ErrCode::LACK_R_BRACK, peek.lno);
+            prevWord();
+        }
     }
     if (peek.type != CatCode::ASSIGN)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack =";
     nextWord(); parseConstInitVal();
-    !inrecord && ofs << "<ConstDef>" << endl;
+    isprint && !inrecord && ofs << "<ConstDef>" << endl;
 }
 
 void Parser::parseConstInitVal() { // ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'
@@ -329,7 +551,7 @@ void Parser::parseConstInitVal() { // ConstExp | '{' [ ConstInitVal { ',' ConstI
     } else {
         parseConstExp();
     }
-    !inrecord && ofs << "<ConstInitVal>" << endl;
+    isprint && !inrecord && ofs << "<ConstInitVal>" << endl;
 }
 
 void Parser::parseVarDecl() { // BType VarDef { ',' VarDef } ';'
@@ -338,24 +560,32 @@ void Parser::parseVarDecl() { // BType VarDef { ',' VarDef } ';'
     do {
         nextWord(); parseVarDef();
     } while (peek.type == CatCode::COMMA);
-    if (peek.type != CatCode::SEMICN)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] VarDecl: lack ;";
-    nextWord();
-    !inrecord && ofs << "<VarDecl>" << endl;
+    if (peek.type != CatCode::SEMICN) {
+        /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] VarDecl: lack ;"; */
+        ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);                    // Error: i
+    } else {
+        nextWord();
+    }
+    isprint && !inrecord && ofs << "<VarDecl>" << endl;
 }
 
 void Parser::parseVarDef() { // Ident { '[' ConstExp ']' } | Ident { '[' ConstExp ']' } '=' InitVal
     if (peek.type != CatCode::IDENFR)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] VarDef: lack Ident";
+    IdentItem* identItem = curContext->addIdent(peek, true);
     while (nextWord().type == CatCode::L_BRACK) {
         nextWord(); parseConstExp();
-        if (peek.type != CatCode::R_BRACK)
-            throw "[" + to_string(peek.lno) + " " + peek.cont + "] VarDef: array lack ] to match [";
+        if (identItem != nullptr) identItem->dim.push_back(0);  // maybe we should wrapped it to an api
+        if (peek.type != CatCode::R_BRACK) {
+            /*throw "[" + to_string(peek.lno) + " " + peek.cont + "] VarDef: array lack ] to match ["; */
+            ErrorHandler::respond(ErrCode::LACK_R_BRACK, peek.lno);                         // Error: k
+            prevWord();
+        }
     }
     if (peek.type == CatCode::ASSIGN) { // ... '=' InitVal
         nextWord(); parseInitVal();
     }
-    !inrecord && ofs << "<VarDef>" << endl;
+    isprint && !inrecord && ofs << "<VarDef>" << endl;
 }
 
 void Parser::parseInitVal() { // Exp | '{' [ InitVal { ',' InitVal } ] '}'
@@ -372,53 +602,101 @@ void Parser::parseInitVal() { // Exp | '{' [ InitVal { ',' InitVal } ] '}'
     } else {
         parseExp();
     }
-    !inrecord && ofs << "<InitVal>" << endl;
+    isprint && !inrecord && ofs << "<InitVal>" << endl;
 }
 
 void Parser::parseFuncDef() {
-    parseFuncType();
+    /* get function type */
+    Type ftype = parseFuncType();
+
+    /* get function name & lno */
     if (peek.type != CatCode::IDENFR)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncDef: lack Ident";
+    string fname = peek.cont;
+    int f_lno = peek.lno;
+
+    /* get function parameters */
+    vector<Param> params;
     if (nextWord().type != CatCode::L_PARENT)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncDef: lack (";
     if (nextWord().type != CatCode::R_PARENT) {
-        parseFuncFParams();
+        params = parseFuncFParams();
     }
-    if (peek.type != CatCode::R_PARENT)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncDef: lack )";
-    nextWord(); parseBlock();
-    !inrecord && ofs << "<FuncDef>" << endl;
+
+    curContext->addFunc(fname, ftype, params, f_lno);
+
+    if (peek.type != CatCode::R_PARENT) {
+        /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncDef: lack )"; */
+        ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);                     // Error: j
+    } else {
+        nextWord();
+    }
+    parseBlock(ftype != Type::VOID, params);
+    isprint && !inrecord && ofs << "<FuncDef>" << endl;
 }
 
-void Parser::parseFuncFParams() {
-    parseFuncFParam();
+vector<Param> Parser::parseFuncFParams() {
+    vector<Param> params;
+    set<string> para_names;  /* seemed ugly: should be dealt in FuncItem */
+
+    params.push_back(parseFuncFParam());
+    para_names.insert(params[0].name);
     while (peek.type == CatCode::COMMA) {
-        nextWord(); parseFuncFParam();
-    }
-    !inrecord && ofs << "<FuncFParams>" << endl;
-}
-
-void Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
-    if (peek.type != CatCode::INT_TK)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncFParam: lack BType(int)";
-    if (nextWord().type != CatCode::IDENFR)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncFParam: lack Ident";
-    if (nextWord().type == CatCode::L_BRACK) { // '[' ']' { '[' ConstExp ']' }
-        if (nextWord().type != CatCode::R_BRACK)
-            throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncFParam: array param lack ] to match [";
-        while (nextWord().type == CatCode::L_BRACK) { // { '[' ConstExp ']' }
-            nextWord(); parseConstExp();
-            if (peek.type != CatCode::R_BRACK)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncFParam: mul arrays param lack ] to match [";
+        nextWord();
+        Param param = parseFuncFParam();
+        if (para_names.find(param.name) != para_names.end()) {
+            ErrorHandler::respond(ErrCode::REDEFINE_IDENT, preLook(-1).lno);                // Error: b
+        } else {
+            params.push_back(param);
+            para_names.insert(param.name);
         }
     }
-    !inrecord && ofs << "<FuncFParam>" << endl;
+    isprint && !inrecord && ofs << "<FuncFParams>" << endl;
+    return params;
 }
 
-void Parser::parseFuncRParams() {
-    parseExp();
-    while (peek.type == CatCode::COMMA) {
-        nextWord(); parseExp();
+Param Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
+    Param param;
+
+    /* get parameter(ident) type */
+    param.type = parseBType();
+
+    /* get parameter(ident) name */
+    if (peek.type != CatCode::IDENFR)
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncFParam: lack Ident";
+    param.name = peek.cont;
+
+    /* get parameter(ident) dim */
+    if (nextWord().type == CatCode::L_BRACK) { // '[' ']' { '[' ConstExp ']' }
+        if (nextWord().type != CatCode::R_BRACK) {
+            /* throw "[" + to_string(peek.lno) + " " + peek.cont + "]
+             * FuncFParam: array param lack ] to match ["; */
+            ErrorHandler::respond(ErrCode::LACK_R_BRACK, peek.lno);                         // Error: k
+            prevWord();
+        }
+        param.dim.push_back(0);
+        while (nextWord().type == CatCode::L_BRACK) { // { '[' ConstExp ']' }
+            nextWord(); parseConstExp();
+            param.dim.push_back(0); // value from parseConstExp()
+            if (peek.type != CatCode::R_BRACK) {
+                /* throw "[" + to_string(peek.lno) + " " + peek.cont + "]/
+                 * FuncFParam: mul arrays param lack ] to match ["; */
+                ErrorHandler::respond(ErrCode::LACK_R_BRACK, peek.lno);                     // Error: k
+                prevWord();
+            }
+        }
     }
-    !inrecord && ofs << "<FuncRParams>" << endl;
+    isprint && !inrecord && ofs << "<FuncFParam>" << endl;
+    return param;
+}
+
+vector<Param> Parser::parseFuncRParams() {
+    vector<Param> params;
+    params.push_back(parseExp());
+    while (peek.type == CatCode::COMMA) {
+        nextWord();
+        params.push_back(parseExp());
+    }
+    isprint && !inrecord && ofs << "<FuncRParams>" << endl;
+    return params;
 }

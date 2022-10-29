@@ -33,11 +33,46 @@ enum struct ErrCode {
     UNDEFINE_ERROR
 };
 
+struct ReturnCheck {    // check whether function's return-stmt match type
+    int lno;
+    bool isReTurnStmt;
+    bool hasReturnValue;
+
+    ReturnCheck():lno(0), isReTurnStmt(false), hasReturnValue(false) {}
+};
+
 class ErrorHandler {
+private:
+    static inline bool isNormalChar(char c) {
+        return (c == 32 || c == 33 || (40 <= c && c <= 126));
+    }
+
 public:
+    static bool inEffect;
     static ofstream efs;
+
     static void respond(ErrCode errCode, int lno) {
-        efs << lno << " " << char(errCode) << endl;
+        if (inEffect)
+            efs << lno << " " << char(errCode) << endl;
+    }
+
+    static bool checkFormatString(string& str, int& cnt) {
+        for (int i = 1; i < str.size() - 1; ++i) {
+            if (str[i] == '\\') {
+                if (i+1 >= str.size() || str[i+1] != 'n') {
+                    return false;
+                }
+            } else if (str[i] == '%') {
+                if (i+1 >= str.size() || str[i+1] != 'd') {
+                    return false;
+                } else {
+                    cnt += 1;
+                }
+            } else if (!isNormalChar(str[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 };
 

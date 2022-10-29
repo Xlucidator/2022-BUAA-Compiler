@@ -10,6 +10,7 @@
 #include <fstream>
 #include <string>
 #include "lexer.h"
+#include "symbol.h"
 #include "errcode.h"
 using namespace std;
 
@@ -26,14 +27,23 @@ private:
     Word peek;
     ofstream ofs;
 
+    bool isprint = true;
+
     void snapshot() { // take a snapshot, from which each parseXX become virtual
         record = cnt;
         inrecord = true;
+        ErrorHandler::inEffect = false;
     }
+
     void recover() {  // must be called after snapshot, or nothing will be print out
         cnt = record;
         peek = wordsList[record - 1];
         inrecord = false;
+        ErrorHandler::inEffect = true;
+    }
+
+    void genOutput(string&& tar) { // TODO: implement it in all parsers
+        isprint && !inrecord && ofs << tar << endl;
     }
 
 public:
@@ -46,20 +56,21 @@ public:
     // basic structure
     void parseCompUnit();
     void parseMainFunc();
-    void parseBlock();
-    void parseBlockItem();
-    void parseStmt();
+    void parseBlock(bool inLoop);                           // for common block
+    void parseBlock(bool needReturnValue, vector<Param>& funcParams); // for function block
+    ReturnCheck parseBlockItem();                           // ReturnCheck
+    ReturnCheck parseStmt(bool inLoop);             // ReturnCheck
 
     // Exp
     inline void parseLOrExp();
     inline void parseLAndExp();
     inline void parseEqExp();
     inline void parseRelExp();
-    inline void parseAddExp();
-    inline void parseMulExp();
-    void parseUnaryExp();
-    void parsePrimaryExp();
-    void parseLVal();
+    inline Param parseAddExp();
+    inline Param parseMulExp();
+    Param parseUnaryExp();
+    Param parsePrimaryExp();
+    IdentItem* parseLVal(vector<int>* offsets);
 
     // Decl
     void parseConstDecl();
@@ -71,22 +82,23 @@ public:
 
     // Func
     void parseFuncDef();
-    void parseFuncFParam();
-    void parseFuncFParams();
-    void parseFuncRParams();
+    Param parseFuncFParam();
+    vector<Param> parseFuncFParams();
+    vector<Param> parseFuncRParams();
 
     // Terminal symbol wrappers
     inline void parseNumber();
     inline void parseUnaryOp();
-    inline void parseFuncType();
+    inline Type parseBType();
+    inline Type parseFuncType();
     // symbol wrappers
-    void parseExp();
+    Param parseExp();
     void parseCond();
     void parseConstExp();
 };
 
 inline Word Parser::nextWord() {
-    !inrecord &&  ofs << getTypeStr(peek.type) << " " << peek.cont << endl;
+    !isprint && !inrecord &&  ofs << getTypeStr(peek.type) << " " << peek.cont << endl;
     // print last one, then peek next
 
     if (cnt >= wordsList.size())
@@ -112,40 +124,40 @@ inline Word Parser::preLook(int offset) {
 
 inline void Parser::parseLOrExp() { // LAndExp { '||' LAndExp }
     parseLAndExp();
-    !inrecord && ofs << "<LOrExp>" << endl;
+    isprint && !inrecord && ofs << "<LOrExp>" << endl;
     if (peek.type != CatCode::OR)
         return;
     while (peek.type == CatCode::OR) {
         nextWord(); parseLAndExp();
-        !inrecord && ofs << "<LOrExp>" << endl;
+        isprint && !inrecord && ofs << "<LOrExp>" << endl;
     }
 }
 
 inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
     parseEqExp();
-    !inrecord && ofs << "<LAndExp>" << endl;
+    isprint && !inrecord && ofs << "<LAndExp>" << endl;
     if (peek.type != CatCode::AND)
         return;
     while (peek.type == CatCode::AND) {
         nextWord(); parseEqExp();
-        !inrecord && ofs << "<LAndExp>" << endl;
+        isprint && !inrecord && ofs << "<LAndExp>" << endl;
     }
 }
 
 inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
     parseRelExp();
-    !inrecord && ofs << "<EqExp>" << endl;
+    isprint && !inrecord && ofs << "<EqExp>" << endl;
     if (peek.type != CatCode::EQL && peek.type != CatCode::NEQ)
         return;
     while (peek.type == CatCode::EQL || peek.type == CatCode::NEQ) {
         nextWord(); parseRelExp();
-        !inrecord && ofs << "<EqExp>" << endl;
+        isprint && !inrecord && ofs << "<EqExp>" << endl;
     }
 }
 
 inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp }
     parseAddExp();
-    !inrecord && ofs << "<RelExp>" << endl;
+    isprint && !inrecord && ofs << "<RelExp>" << endl;
     if (peek.type != CatCode::LSS &&
         peek.type != CatCode::GRE &&
         peek.type != CatCode::LEQ &&
@@ -157,56 +169,73 @@ inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp
             peek.type == CatCode::GEQ
             ) {
         nextWord(); parseAddExp();
-        !inrecord && ofs << "<RelExp>" << endl;
+        isprint && !inrecord && ofs << "<RelExp>" << endl;
     }
 }
 
-inline void Parser::parseAddExp() { // MulExp { ('+' | '−') MulExp }
-    parseMulExp();
-    !inrecord && ofs << "<AddExp>" << endl;
+inline Param Parser::parseAddExp() { // MulExp { ('+' | '−') MulExp }
+    Param param;
+    param = parseMulExp();
+    isprint && !inrecord && ofs << "<AddExp>" << endl;
     if (peek.type != CatCode::PLUS && peek.type != CatCode::MINU)
-        return;
+        return param;
     while (peek.type == CatCode::PLUS || peek.type == CatCode::MINU) {
         nextWord(); parseMulExp();
-        !inrecord && ofs << "<AddExp>" << endl;
+        // let us assume that in exp all param-types are the same
+        isprint && !inrecord && ofs << "<AddExp>" << endl;
     }
+    return param;
 }
 
-inline void Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
-    parseUnaryExp();
-    !inrecord && ofs << "<MulExp>" << endl;
+inline Param Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
+    Param param;
+    param = parseUnaryExp();
+    isprint && !inrecord && ofs << "<MulExp>" << endl;
     if (peek.type != CatCode::MULT &&
         peek.type != CatCode::DIV  &&
-        peek.type != CatCode::MOD ) return;
+        peek.type != CatCode::MOD ) return param;
     while (
             peek.type == CatCode::MULT ||
             peek.type == CatCode::DIV  ||
             peek.type == CatCode::MOD
             ) {
         nextWord(); parseUnaryExp();
-        !inrecord && ofs << "<MulExp>" << endl;
+        isprint && !inrecord && ofs << "<MulExp>" << endl;
     }
+    return param;
 }
 
 inline void Parser::parseUnaryOp() {
     if (peek.type != CatCode::PLUS && peek.type != CatCode::MINU && peek.type != CatCode::NOT)
         throw "unrecognized UnaryOp\n";
     nextWord();
-    !inrecord && ofs << "<UnaryOp>" << endl;
+    isprint && !inrecord && ofs << "<UnaryOp>" << endl;
 }
 
 inline void Parser::parseNumber() {
     if (peek.type != CatCode::INT_CON)
         throw "unrecognized Number\n";
     nextWord();
-    !inrecord && ofs << "<Number>" << endl;
+    isprint && !inrecord && ofs << "<Number>" << endl;
 }
 
-inline void Parser::parseFuncType() {
+inline Type Parser::parseBType() {
+    Type type;
+    if (peek.type != CatCode::INT_TK)
+        throw "unrecognized BType\n";
+    type = Type::INT;
+    nextWord();
+    return type;
+}
+
+inline Type Parser::parseFuncType() {
+    Type rtype;
     if (peek.type != CatCode::VOID_TK && peek.type != CatCode::INT_TK)
         throw "unrecognized FuncType\n";
+    rtype = (peek.type == CatCode::VOID_TK) ? Type::VOID : Type::INT;
     nextWord();
-    !inrecord && ofs << "<FuncType>" << endl;
+    isprint && !inrecord && ofs << "<FuncType>" << endl;
+    return rtype;
 }
 
 #endif //COMPILER_PARSER_H

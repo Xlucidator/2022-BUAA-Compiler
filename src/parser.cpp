@@ -256,11 +256,12 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack format-string";
 
             int format_char_cnt = 0;
+            string formatString = peek.cont.substr(1, peek.cont.length()-2);
             vector<string> GET_pureStrings;
             if (!ErrorHandler::checkFormatString(peek.cont, format_char_cnt)) {
                 ErrorHandler::respond(ErrCode::INVALID_FSTRING, printf_lno);
             }
-            GET_pureStrings = split(peek.cont, "%d");
+            GET_pureStrings = split(formatString, "%d");
             nextWord();
 
             int exp_cnt = 0;
@@ -278,7 +279,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
 
             for (int i = 0; i < GET_pureStrings.size(); ++i) {
                 if (!GET_pureStrings[i].empty()) {
-                    irBuilder.addItemPrintf(GET_pureStrings[i]);
+                    irBuilder.addItemPrintf("\"" + GET_pureStrings[i] + "\"");
                 }
                 if (i != 0) irBuilder.addItemPrintf(GET_symbols[i-1]);
             }

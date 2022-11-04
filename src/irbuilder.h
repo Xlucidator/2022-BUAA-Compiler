@@ -89,115 +89,32 @@ public:
     };
 
     IRBuilder() = default;
-    explicit IRBuilder(vector<IRItem> &irs): IRs(irs) {
-        if (isprint) {
-            ofs.open("irs.txt", ios::out);
-            if (ofs.fail()) {
-                 cerr << "failed to write" << endl;
-                 return;
-            }
-        }
-    }
+    explicit IRBuilder(vector<IRItem> &irs);
 
-    void printIRs() {
-        if (isprint) {
-            string prefix;
-            bool STATE_FUNC = false;
-            string funcName;
-            for (auto &item : IRs) {
-                if (STATE_FUNC && item.op == IROp::DEF_END && item.res == funcName) {
-                    prefix = prefix.substr(0, prefix.length()-1);
-                    STATE_FUNC = false;
-                }
-
-                ofs << prefix << item.toString() << endl;
-
-                if (item.op == IROp::DEF_FUN) {
-                    STATE_FUNC = true;
-                    funcName = item.res;
-                    prefix += "\t";
-                }
-
-                if (item.toString().find("END") != string::npos) {
-                    ofs << prefix << endl;
-                }
-            }
-        }
-    }
+    void printIRs();
 
     string addItemCalculateExp(IROp op, string&& label1, string&& label2);
     string addItemCalculateExp(IROp op, string& label1, string& label2);
     string addItemCalculateExp(IROp op, string& label1, string&& label2);
 
-    void addItemAssign(string& lvalue, string& rvalue) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::ADD, rvalue, ZERO_STR, lvalue));
-        }
-    }
+    void addItemAssign(string& lvalue, string& rvalue);
 
-    void addItemLoadRParam(string& rParam) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::RPARA, rParam));
-        }
-    }
+    void addItemLoadRParam(string& rParam);
+    void addItemCallFunc(string& funcName);
+    void addItemFuncReturn(string& retValue);
 
-    void addItemCallFunc(string& funcName) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::CALL_FUN, funcName));
-        }
-    }
+    void addItemPrintf(string& formatString);
+    void addItemPrintf(string&& formatString);
 
-    void addItemFuncReturn(string& retValue) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::RET, retValue));
-        }
-    }
+    string addItemScanf();
 
-    void addItemPrintf(string& formatString) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::PRINTF, formatString));
-        }
-    }
+    void addItemDef(IROp defOp, string&& dimSize, string& ident);
+    void addItemDefInit(string& ident, string&& value);
 
-    string addItemScanf() {
-        if (inEffect) {
-            string tmpSymbol = genTmpSymbol();
-            IRs.emplace_back(IRItem(IROp::SCANF, tmpSymbol));
-            return tmpSymbol;
-        }
-        return "";
-    }
+    void addItemDefFunc(string& funcType, string& ident);
+    void addItemDefFParam(string& paramName, string&& dimSize);
 
-    void addItemDef(IROp defOp, string&& dimSize, string& ident) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(defOp, INT_STR, dimSize, ident));
-        }
-    }
-
-    void addItemDefInit(string& ident, string&& value) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::DEF_INIT, value, NULL_STR, ident));
-        }
-    }
-
-    void addItemDefFunc(string& funcType, string& ident) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::DEF_FUN, funcType, NULL_STR, ident));
-        }
-    }
-
-    void addItemDefFParam(string& paramName, string&& dimSize) {
-        // ident will carry dim info
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::FPARA, INT_STR, dimSize, paramName));
-        }
-    }
-
-    void addItemDefEnd(string& ident) {
-        if (inEffect) {
-            IRs.emplace_back(IRItem(IROp::DEF_END, NULL_STR, NULL_STR, ident));
-        }
-    }
+    void addItemDefEnd(string& ident);
 };
 
 extern vector<IRItem> IRList;

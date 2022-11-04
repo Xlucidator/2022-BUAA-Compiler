@@ -47,6 +47,42 @@ string IROpToString(IROp op) {
     }
 }
 
+void IRBuilder::printIRs() {
+    if (isprint) {
+        string prefix;
+        bool STATE_FUNC = false;
+        string funcName;
+        for (auto &item : IRs) {
+            if (STATE_FUNC && item.op == IROp::DEF_END && item.res == funcName) {
+                prefix = prefix.substr(0, prefix.length()-1);
+                STATE_FUNC = false;
+            }
+
+            ofs << prefix << item.toString() << endl;
+
+            if (item.op == IROp::DEF_FUN) {
+                STATE_FUNC = true;
+                funcName = item.res;
+                prefix += "\t";
+            }
+
+            if (item.toString().find("END") != string::npos) {
+                ofs << prefix << endl;
+            }
+        }
+    }
+}
+
+/*========================= class IRBuilder =========================*/
+IRBuilder::IRBuilder(vector<IRItem> &irs): IRs(irs) {
+    if (isprint) {
+        ofs.open("irs.txt", ios::out);
+        if (ofs.fail()) {
+            cerr << "failed to write" << endl;
+            return;
+        }
+    }
+}
 
 string IRBuilder::addItemCalculateExp(IROp op, string&& label1, string&& label2) {
     if (inEffect) {
@@ -73,4 +109,80 @@ string IRBuilder::addItemCalculateExp(IROp op, string& label1, string&& label2) 
         return tmpSymbol;
     }
     return "";
+}
+
+void IRBuilder::addItemAssign(string& lvalue, string& rvalue) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::ADD, rvalue, ZERO_STR, lvalue));
+    }
+}
+
+void IRBuilder::addItemLoadRParam(string& rParam) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::RPARA, rParam));
+    }
+}
+
+void IRBuilder::addItemCallFunc(string& funcName) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::CALL_FUN, funcName));
+    }
+}
+
+void IRBuilder::addItemFuncReturn(string& retValue) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::RET, retValue));
+    }
+}
+
+void IRBuilder::addItemPrintf(string& formatString) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::PRINTF, formatString));
+    }
+}
+
+void IRBuilder::addItemPrintf(string&& formatString) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::PRINTF, formatString));
+    }
+}
+
+string IRBuilder::addItemScanf() {
+    if (inEffect) {
+        string tmpSymbol = genTmpSymbol();
+        IRs.emplace_back(IRItem(IROp::SCANF, tmpSymbol));
+        return tmpSymbol;
+    }
+    return "";
+}
+
+void IRBuilder::addItemDef(IROp defOp, string&& dimSize, string& ident) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(defOp, INT_STR, dimSize, ident));
+    }
+}
+
+void IRBuilder::addItemDefInit(string& ident, string&& value) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::DEF_INIT, value, NULL_STR, ident));
+    }
+}
+
+void IRBuilder::addItemDefFunc(string& funcType, string& ident) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::DEF_FUN, funcType, NULL_STR, ident));
+    }
+}
+
+void IRBuilder::addItemDefFParam(string& paramName, string&& dimSize) {
+    // ident will carry dim info
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::FPARA, INT_STR, dimSize, paramName));
+    }
+}
+
+void IRBuilder::addItemDefEnd(string& ident) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::DEF_END, NULL_STR, NULL_STR, ident));
+    }
 }

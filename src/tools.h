@@ -27,6 +27,19 @@ inline bool isnumber(std::string& str) {
     return isdigit(str[0]);
 }
 
+inline bool isarray(std::string& str) {
+    return str.find('[') != std::string::npos;
+}
+
+inline string getArrayIndex(std::string& str) {
+    std::string::size_type begin = str.find('['), end = str.find(']');
+    return str.substr(begin+1, end-begin-1);
+}
+
+inline string getArrayIdent(std::string& str) {
+    return str.substr(0, str.find('['));
+}
+
 int calculate(std::string& num1, IROp op, std::string& num2);
 
 #endif //COMPILER_TOOLS_H

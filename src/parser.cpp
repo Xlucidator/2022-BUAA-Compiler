@@ -330,7 +330,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                 /* detect whether it's 'LVal =' or 'Exp;' */
                 bool lval_assign;
                 snapshot();
-                    parseLVal(nullptr, nullptr);
+                    parseLVal(nullptr, nullptr, false);
                     lval_assign = (peek.type == CatCode::ASSIGN);
                 recover();
 
@@ -339,7 +339,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                     string GET_symbolRVal;
 
                     /* check is modifiable */
-                    IdentItem* identItem = parseLVal(nullptr, &GET_symbolLVal);
+                    IdentItem* identItem = parseLVal(nullptr, &GET_symbolLVal, false);
                     if (identItem != nullptr && !identItem->modifiable) {
                         ErrorHandler::respond(ErrCode::ASSIGN_UNMODIFIABLE_LVAL, preLook(-1).lno);  // Error: h
                     }
@@ -357,7 +357,14 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                     } else {                                        // LVal '=' 'Exp' ';'
                         parseExp(&GET_symbolRVal);
                     }
-                    irBuilder.addItemAssign(GET_symbolLVal, GET_symbolRVal);
+
+                    if (isarray(GET_symbolLVal)) {
+                        string ident = getArrayIdent(GET_symbolLVal);
+                        string index = getArrayIndex(GET_symbolLVal);
+                        irBuilder.addItemStoreArray(ident, index, GET_symbolRVal);
+                    } else {
+                        irBuilder.addItemAssign(GET_symbolLVal, GET_symbolRVal);
+                    }
                 } else {            // Exp ';'
                     parseExp(nullptr);
                 }
@@ -409,7 +416,7 @@ void Parser::parseConstExp(int& OUT_number) {
     OUT_number = stoi(GET_symbol);
 }
 
-IdentItem* Parser::parseLVal(vector<int>* OUT_offsets, string* OUT_symbolLVal) {
+IdentItem* Parser::parseLVal(vector<int>* OUT_offsets, string* OUT_symbolLVal, bool IN_wrapArray) {
     // Ident {'[' Exp ']'}
     string GET_symbolLVal;
     vector<int> GET_symbolDims;
@@ -452,12 +459,16 @@ IdentItem* Parser::parseLVal(vector<int>* OUT_offsets, string* OUT_symbolLVal) {
         }
         dim_cnt += 1;
     }
-    if (!GET_symbolDims.empty()) {
-        GET_symbolLVal = GET_symbolLVal + "[" + index + "]";
-    }
 
     if (OUT_symbolLVal != nullptr) {
-        (*OUT_symbolLVal) = GET_symbolLVal;
+        if (!GET_symbolDims.empty()) {
+            if (IN_wrapArray)
+                (*OUT_symbolLVal) = irBuilder.addItemLoadArray(GET_symbolLVal, index);
+            else
+                (*OUT_symbolLVal) = GET_symbolLVal + "[" + index + "]";
+        } else {
+            (*OUT_symbolLVal) = GET_symbolLVal;
+        }
     }
     genOutput("<LVal>");
     return identItem;
@@ -615,7 +626,7 @@ Param Parser::parsePrimaryExp(string& OUT_symbol) { // '(' Exp ')' | LVal | Numb
             vector<int> GET_offsets;    // fake now
             string GET_symbol;
 
-            GET_identItem = parseLVal(&GET_offsets, &GET_symbol);
+            GET_identItem = parseLVal(&GET_offsets, &GET_symbol, true);
             if (GET_identItem != nullptr) {
                 param.type = GET_identItem->type;
                 for (auto i = GET_offsets.size(); i < GET_identItem->dim.size(); ++i)

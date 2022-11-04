@@ -86,7 +86,7 @@ public:
     inline Param parseMulExp(string& symbol);
     Param parseUnaryExp(string& symbol);
     Param parsePrimaryExp(string& symbol);
-    IdentItem* parseLVal(vector<int>* offsets, string* symbolLVal);
+    IdentItem* parseLVal(vector<int>* offsets, string* symbolLVal, bool wrapArray);
 
     // Decl
     void parseConstDecl();

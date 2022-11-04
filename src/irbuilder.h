@@ -25,8 +25,8 @@ enum struct IROp {  // | op | label1 | label2 | res |
     FPARA,          //   *     int       2     c[][3]   <-- (from above)
     RET,            //   *    ident                     <-- return ident
 
-    RPARA,
-    CALL_FUN,
+    RPARA,          //   *
+    CALL_FUN,       //   *
 
     ADD,
     MIN,
@@ -39,8 +39,8 @@ enum struct IROp {  // | op | label1 | label2 | res |
     BEQ,
     BNE,
 
-    LOAD_ARR,       // [ ] a 3 t1  <--  t1=a[3]
-    STORE_ARR,      // [*] t1 3 a  <--  a[3]=t1
+    LOAD_ARR,       //   *     arr      3        t1     <-- t1=a[3]
+    STORE_ARR,      //   *     arr      3        t1     <-- a[3]=t1
 
     PRINTF,
     SCANF
@@ -98,6 +98,9 @@ public:
     string addItemCalculateExp(IROp op, string& label1, string&& label2);
 
     void addItemAssign(string& lvalue, string& rvalue);
+
+    string addItemLoadArray(string& array, string& offset);
+    void addItemStoreArray(string& array, string& offset, string& ident);
 
     void addItemLoadRParam(string& rParam);
     void addItemCallFunc(string& funcName);

@@ -117,6 +117,21 @@ void IRBuilder::addItemAssign(string& lvalue, string& rvalue) {
     }
 }
 
+string IRBuilder::addItemLoadArray(string &array, string &offset) {
+    if (inEffect) {
+        string tmpSymbol = genTmpSymbol();
+        IRs.emplace_back(IRItem(IROp::LOAD_ARR, array, offset, tmpSymbol));
+        return tmpSymbol;
+    }
+    return "";
+}
+
+void IRBuilder::addItemStoreArray(string &array, string &offset, string &ident) {
+    if (inEffect) {
+        IRs.emplace_back(IRItem(IROp::STORE_ARR, array, offset, ident));
+    }
+}
+
 void IRBuilder::addItemLoadRParam(string& rParam) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::RPARA, rParam));

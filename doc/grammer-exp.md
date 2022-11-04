@@ -168,3 +168,53 @@ while (a1[1] >= 4/2) {
 <FormatString> → '"'{<Char>}'"' // a
 ```
 
+
+
+语法制导翻译
+
+```c
+为方便对照, 下文给出了文法符号与可能存在的错误的对应关系:
+编译单元    CompUnit → {Decl} {FuncDef} MainFuncDef  
+声明  	 Decl → ConstDecl | VarDecl
+常量声明    ConstDecl → 'const' BType ConstDef { ',' ConstDef } ';' // i
+基本类型    BType → 'int'
+常数定义    ConstDef → Ident { '[' ConstExp ']' } '=' ConstInitVal  // b k
+常量初值    ConstInitVal → ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}' 
+变量声明    VarDecl → BType VarDef { ',' VarDef } ';' // i
+变量定义    VarDef → Ident { '[' ConstExp ']' } // b
+    			  | Ident { '[' ConstExp ']' } '=' InitVal // k
+变量初值    InitVal → Exp | '{' [ InitVal { ',' InitVal } ] '}'
+函数定义    FuncDef → FuncType Ident '(' [FuncFParams] ')' Block // b g j
+主函数定义   MainFuncDef → 'int' 'main' '(' ')' Block // b g j
+函数类型    FuncType → 'void' | 'int' 
+函数形参表   FuncFParams → FuncFParam { ',' FuncFParam } 
+函数形参    FuncFParam → BType Ident ['[' ']' { '[' ConstExp ']' }]  //   b k
+语句块     Block → '{' { BlockItem } '}' 
+语句块项    BlockItem → Decl | Stmt 
+语句  Stmt → LVal '=' Exp ';' | [Exp] ';' | Block // h i
+    | 'if' '(' Cond ')' Stmt [ 'else' Stmt ] // j
+    | 'while' '(' Cond ')' Stmt // j
+    | 'break' ';' | 'continue' ';' // i m
+    | 'return' [Exp] ';' // f i
+    | LVal '=' 'getint''('')'';' // h i j
+    | 'printf''('FormatString{,Exp}')'';' // i j l
+表达式 	 Exp → AddExp 注：SysY 表达式是int 型表达式 
+条件表达式   Cond → LOrExp 
+左值表达式   LVal → Ident {'[' Exp ']'} // c k
+基本表达式   PrimaryExp → '(' Exp ')' | LVal | Number 
+数值  	  Number → IntConst 
+一元表达式   UnaryExp → PrimaryExp | Ident '(' [FuncRParams] ')' // c d e j
+        			  | UnaryOp UnaryExp 
+单目运算符   UnaryOp → '+' | '−' | '!' 注：'!'仅出现在条件表达式中 
+函数实参表   FuncRParams → Exp { ',' Exp } 
+乘除模表达式  MulExp → UnaryExp | MulExp ('*' | '/' | '%') UnaryExp 
+加减表达式   AddExp → MulExp | AddExp ('+' | '−') MulExp 
+关系表达式   RelExp → AddExp | RelExp ('<' | '>' | '<=' | '>=') AddExp
+相等性表达式  EqExp → RelExp | EqExp ('==' | '!=') RelExp
+逻辑与表达式  LAndExp → EqExp | LAndExp '&&' EqExp
+逻辑或表达式  LOrExp → LAndExp | LOrExp '||' LAndExp 
+常量表达式   ConstExp → AddExp 注：使用的Ident 必须是常量
+格式字符串:
+<FormatString> → '"'{<Char>}'"' // a
+```
+

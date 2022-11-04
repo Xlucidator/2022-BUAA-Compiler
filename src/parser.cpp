@@ -144,7 +144,7 @@ void Parser::parseBlock(bool inLoop) {  // generate normal block and so on
     nextWord();
     genOutput("<Block>");
 
-    /* exit a block: switch back to previous context */ // TODO: should mark function end
+    /* exit a block: switch back to previous context */
     curContext = curContext->getPreContext();
     delete blockScope;
 }
@@ -553,7 +553,7 @@ Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [Fun
                 if (param.type != Type::VOID) {
                     OUT_symbol = irBuilder.addItemCalculateExp(IROp::ADD, "RET", "0");
                 } else {
-                    OUT_symbol = "";    // TODO: looks weird
+                    OUT_symbol = "";
                 }
             } else {  // PrimaryExp
                 string GET_symbol;

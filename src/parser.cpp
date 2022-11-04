@@ -2,11 +2,16 @@
 // Created by Excalibur on 2022/9/20.
 //
 
+#include "tools.h"
 #include "parser.h"
 #include "catcode.h"
 #include "symbol.h"
 #include "errcode.h"
+#include "irbuilder.h"
+
 #include <set>
+#include <vector>
+#include <numeric>
 #include <iostream>
 
 using namespace std;
@@ -31,6 +36,8 @@ void doSyntaxAnalysis() {
     } catch (string& err_str) {
         cout << err_str << endl;
     }
+
+    irBuilder.printIRs();
 }
 
 
@@ -67,6 +74,10 @@ void Parser::parseCompUnit() {
 
 void Parser::parseMainFunc() {
     vector<Param> params;
+    string MAIN_STR = "main";
+    string INT_STR = "int";
+
+    irBuilder.addItemDefFunc(INT_STR, MAIN_STR);
 
     if (peek.type != CatCode::INT_TK)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] main: lack int";
@@ -81,6 +92,9 @@ void Parser::parseMainFunc() {
         nextWord();
     }
     parseBlock(true, params);
+
+    irBuilder.addItemDefEnd(MAIN_STR);
+
     genOutput("<MainFuncDef>");
 }
 
@@ -130,7 +144,7 @@ void Parser::parseBlock(bool inLoop) {  // generate normal block and so on
     nextWord();
     genOutput("<Block>");
 
-    /* exit a block: switch back to previous context */
+    /* exit a block: switch back to previous context */ // TODO: should mark function end
     curContext = curContext->getPreContext();
     delete blockScope;
 }
@@ -202,23 +216,26 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
             break;
 
         // 'return' [Exp] ';'
-        case CatCode::RETURN_TK:
+        case CatCode::RETURN_TK: {
+            string GET_symbol;
+
             returnCheck.lno = peek.lno;
             returnCheck.isReTurnStmt = true;
             if (nextWord().type != CatCode::SEMICN) {
                 /* detect whether there is an Exp after return, or just lack ; */
                 bool hasExp = true;
-                snapshot(); // TODO: maybe it's not necessary to  rehearse
-                    try {
-                        parseExp();
-                    } catch (string& err_str) {
-                        hasExp = false;
-                    }
+                snapshot();
+                try {
+                    parseExp(nullptr);
+                } catch (string &err_str) {
+                    hasExp = false;
+                }
                 recover();
 
                 if (hasExp) {
                     returnCheck.hasReturnValue = true;
-                    parseExp();
+                    parseExp(&GET_symbol);
+                    irBuilder.addItemFuncReturn(GET_symbol);
                 }
             }
             if (peek.type != CatCode::SEMICN) {
@@ -228,6 +245,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                 nextWord();
             }
             break;
+        }
 
         // 'printf''('FormatString{','Exp}')'';'
         case CatCode::PRINTF_TK: {
@@ -238,19 +256,31 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack format-string";
 
             int format_char_cnt = 0;
+            vector<string> GET_pureStrings;
             if (!ErrorHandler::checkFormatString(peek.cont, format_char_cnt)) {
                 ErrorHandler::respond(ErrCode::INVALID_FSTRING, printf_lno);
             }
+            GET_pureStrings = split(peek.cont, "%d");
             nextWord();
 
             int exp_cnt = 0;
+            vector<string> GET_symbols;
             while (peek.type == CatCode::COMMA) {
+                string GET_symbol;
                 nextWord();
-                parseExp();
+                parseExp(&GET_symbol);
+                GET_symbols.push_back(move(GET_symbol));
                 exp_cnt += 1;
             }
             if (format_char_cnt != exp_cnt) {
                 ErrorHandler::respond(ErrCode::UNMATCHED_FORMAT_CHAR, printf_lno);
+            }
+
+            for (int i = 0; i < GET_pureStrings.size(); ++i) {
+                if (!GET_pureStrings[i].empty()) {
+                    irBuilder.addItemPrintf(GET_pureStrings[i]);
+                }
+                if (i != 0) irBuilder.addItemPrintf(GET_symbols[i-1]);
             }
 
             if (peek.type != CatCode::R_PARENT) {
@@ -283,7 +313,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
         case CatCode::NOT : // UnaryOp: '!'
         case CatCode::L_PARENT: // PrimaryExp: '(' Exp ')'
         case CatCode::INT_CON : // Number: IntConst
-            parseExp();
+            parseExp(nullptr);
             if (peek.type != CatCode::SEMICN) {
                 /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] Exp: lack ;"; */
                 ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);            // Error: i
@@ -294,23 +324,27 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
         // Exp ';' / LVal '=' xxx ';'
         case CatCode::IDENFR:
             if (preLook(1).type == CatCode::L_PARENT) // Exp ';' (Ident() function)
-                parseExp();
+                parseExp(nullptr);
             else {
                 /* detect whether it's 'LVal =' or 'Exp;' */
                 bool lval_assign;
                 snapshot();
-                    parseLVal(nullptr);
+                    parseLVal(nullptr, nullptr);
                     lval_assign = (peek.type == CatCode::ASSIGN);
                 recover();
 
-                if (lval_assign) { // LVal '='
+                if (lval_assign) {  // LVal '=' xxx ';'
+                    string GET_symbolLVal;
+                    string GET_symbolRVal;
+
                     /* check is modifiable */
-                    IdentItem* identItem = parseLVal(nullptr);
+                    IdentItem* identItem = parseLVal(nullptr, &GET_symbolLVal);
                     if (identItem != nullptr && !identItem->modifiable) {
                         ErrorHandler::respond(ErrCode::ASSIGN_UNMODIFIABLE_LVAL, preLook(-1).lno);  // Error: h
                     }
 
                     if (nextWord().type == CatCode::GETINT_TK) {    // LVal '=' 'getint' '(' ')' ';'
+                        GET_symbolRVal = irBuilder.addItemScanf();
                         if (nextWord().type != CatCode::L_PARENT)
                             throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal = getint: lack (";
                         if (nextWord().type != CatCode::R_PARENT) {
@@ -320,10 +354,11 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                             nextWord();
                         }
                     } else {                                        // LVal '=' 'Exp' ';'
-                        parseExp();
+                        parseExp(&GET_symbolRVal);
                     }
+                    irBuilder.addItemAssign(GET_symbolLVal, GET_symbolRVal);
                 } else {            // Exp ';'
-                    parseExp();
+                    parseExp(nullptr);
                 }
             }
             /* deal with ';' together */
@@ -347,32 +382,115 @@ void Parser::parseCond() {
     genOutput("<Cond>");
 }
 
-Param Parser::parseExp() {
+Param Parser::parseExp(string* OUT_symbol) {
+    string GET_symbol;
     Param param;
-    param = parseAddExp();
+    param = parseAddExp(GET_symbol);
     genOutput("<Exp>");
+    if (OUT_symbol != nullptr) {
+        (*OUT_symbol) = GET_symbol;
+    }
     return param;
 }
 
-void Parser::parseConstExp() {
-    parseAddExp();
+void Parser::parseConstExp(int& OUT_number) {
+    string GET_symbol;
+    parseAddExp(GET_symbol);
     genOutput("<ConstExp>");
+
+    if (!isnumber(GET_symbol)) {
+        OUT_number = 0;
+        throw "[" + to_string(preLook(-1).lno) + "] ConstExp: must be calculable";
+    } else if (hasSign(GET_symbol)) {
+        OUT_number = 0;
+        throw "[" + to_string(preLook(-1).lno) + "] ConstExp: can never be negative";
+    }
+    OUT_number = stoi(GET_symbol);
 }
 
-Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp
+IdentItem* Parser::parseLVal(vector<int>* OUT_offsets, string* OUT_symbolLVal) {
+    // Ident {'[' Exp ']'}
+    string GET_symbolLVal;
+    vector<int> GET_symbolDims;
+
+    if (peek.type != CatCode::IDENFR)
+        throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: lack Ident";
+    IdentItem* identItem = curContext->getIdent(peek.cont);
+    if (identItem == nullptr) {
+        ErrorHandler::respond(ErrCode::UNDEFINE_IDENT, peek.lno);                           // Error: c
+    } else {
+        GET_symbolLVal = identItem->name;
+        GET_symbolDims = identItem->dim;
+    }
+
+    string index = "0";
+    string GET_symbol;
+    string GET_dimBase;
+    int dim_cnt = 0;
+    while (nextWord().type == CatCode::L_BRACK) {
+        // always locate the array element
+        nextWord();
+        parseExp(&GET_symbol);
+        if (dim_cnt < GET_symbolDims.size()) {
+            int base = accumulate(GET_symbolDims.begin()+dim_cnt+1, GET_symbolDims.end(), 1, multiplies<int>());
+            if (isnumber(GET_symbol)) {
+                int incr = stoi(GET_symbol) * base;
+                index = (isnumber(index)) ? to_string(stoi(index) + incr) :
+                        irBuilder.addItemCalculateExp(IROp::ADD, index, to_string(incr));
+            } else {
+                string incr = irBuilder.addItemCalculateExp(IROp::MUL, GET_symbol, to_string(base));
+                index = irBuilder.addItemCalculateExp(IROp::ADD, index, incr);
+            }
+        }
+        if (OUT_offsets != nullptr)  // 0 is placeholder. in fact value is of no use
+            OUT_offsets->push_back(isnumber(GET_symbol) ? stoi(GET_symbol) : 0);
+        if (peek.type != CatCode::R_BRACK) {
+            /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: array lack ]"; */
+            ErrorHandler::respond(ErrCode::LACK_R_BRACK, preLook(-1).lno);                  // Error: k
+            prevWord();               /* in case "a[3][2" with no ']' and ';' in next line */
+        }
+        dim_cnt += 1;
+    }
+    if (!GET_symbolDims.empty()) {
+        GET_symbolLVal = GET_symbolLVal + "[" + index + "]";
+    }
+
+    if (OUT_symbolLVal != nullptr) {
+        (*OUT_symbolLVal) = GET_symbolLVal;
+    }
+    genOutput("<LVal>");
+    return identItem;
+}
+
+Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp
     Param param;
     switch (peek.type) {
         // UnaryOp UnaryExp
         case CatCode::PLUS:
         case CatCode::MINU:
-        case CatCode::NOT :
-            parseUnaryOp();
-            param = parseUnaryExp();
+        case CatCode::NOT : {
+            string GET_unaryOp;
+            string GET_symbol;
+
+            parseUnaryOp(GET_unaryOp);  // TODO: CatCode::NOT hasn't been dealt
+            param = parseUnaryExp(GET_symbol);
+
+            if (GET_unaryOp == "-") {
+                if (hasSign(GET_symbol))
+                    OUT_symbol = GET_symbol.substr(1);
+                else
+                    OUT_symbol = "-" + GET_symbol;
+            } else {
+                OUT_symbol = GET_symbol;
+            }
             break;
+        }
 
         // Ident
         case CatCode::IDENFR:
             if (preLook(1).type == CatCode::L_PARENT) { // Ident '(' [FuncRParams] ')'
+                string GET_funcName = peek.cont;
+
                 FuncItem* funcItem = curContext->getFunc(peek.cont);
                 int func_lno = peek.lno;
                 if (funcItem == nullptr) {
@@ -392,8 +510,10 @@ Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | Un
                 vector<Param> RParams;
                 if (nextWord().type != CatCode::R_PARENT) {
                     /* detect whether it's a FuncRParams, or just lack ')' */
+                    //      e.g. foo()*a;  -> foo( *a;
+                    //           foo()+5;  -> foo( +5;  ambiguous
                     bool hasFuncRParams = true;
-                    snapshot(); // TODO: maybe it's not necessary to  rehearse
+                    snapshot();
                         try {
                             parseFuncRParams();
                         } catch (string& err_string) {
@@ -428,15 +548,29 @@ Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | Un
                         }
                     }
                 }
+
+                irBuilder.addItemCallFunc(GET_funcName);
+                if (param.type != Type::VOID) {
+                    OUT_symbol = irBuilder.addItemCalculateExp(IROp::ADD, "RET", "0");
+                } else {
+                    OUT_symbol = "";    // TODO: looks weird
+                }
             } else {  // PrimaryExp
-                param = parsePrimaryExp();
+                string GET_symbol;
+
+                param = parsePrimaryExp(GET_symbol);
+                OUT_symbol = GET_symbol;
             }
             break;
 
         case CatCode::L_PARENT:
-        case CatCode::INT_CON :
-            param = parsePrimaryExp();
+        case CatCode::INT_CON : {
+            string GET_symbol;
+
+            param = parsePrimaryExp(GET_symbol);
+            OUT_symbol = GET_symbol;
             break;
+        }
 
         default:
             throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized UnaryExp";
@@ -445,57 +579,51 @@ Param Parser::parseUnaryExp() { // PrimaryExp | Ident '(' [FuncRParams] ')' | Un
     return param;
 }
 
-IdentItem* Parser::parseLVal(vector<int>* offsets) { // Ident {'[' Exp ']'}
-    if (peek.type != CatCode::IDENFR)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: lack Ident";
-    IdentItem* identItem = curContext->getIdent(peek.cont);
-    if (identItem == nullptr) {
-        ErrorHandler::respond(ErrCode::UNDEFINE_IDENT, peek.lno);                           // Error: c
-    }
-    nextWord();
-    while (peek.type == CatCode::L_BRACK) {
-        nextWord(); parseExp();
-        if (offsets != nullptr) offsets->push_back(0);
-        if (peek.type != CatCode::R_BRACK) {
-            /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: array lack ]"; */
-            ErrorHandler::respond(ErrCode::LACK_R_BRACK, preLook(-1).lno);                  // Error: k
-        } else {                              /* in case "a[3][2" with no ']' and ';' */
-            nextWord();
-        }
-    }
-    genOutput("<LVal>");
-    return identItem;
-}
-
-Param Parser::parsePrimaryExp() { // '(' Exp ')' | LVal | Number
+Param Parser::parsePrimaryExp(string& OUT_symbol) { // '(' Exp ')' | LVal | Number
     Param param;
-    IdentItem* identItem;
-    vector<int> off_selects;    // fake now
+
     switch (peek.type) {
         // '(' Exp ')'
-        case CatCode::L_PARENT :
+        case CatCode::L_PARENT : {
+            string GET_symbol;
+
             nextWord();
-            param = parseExp();
+            param = parseExp(&GET_symbol);
             if (peek.type != CatCode::R_PARENT)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] PrimaryExp-(Exp): lack )";
             nextWord();
+
+            OUT_symbol = GET_symbol;
             break;
+        }
 
         // Number
-        case CatCode::INT_CON :
+        case CatCode::INT_CON : {
+            string GET_number;
+
             param.type = Type::INT;
-            parseNumber();
+            parseNumber(GET_number);
+
+            OUT_symbol = GET_number;
             break;
+        }
 
         // LVal
-        case CatCode::IDENFR :
-            identItem = parseLVal(&off_selects);
-            if (identItem != nullptr) {
-                param.type = identItem->type;
-                for (auto i = off_selects.size(); i < identItem->dim.size(); ++i)
-                    param.dim.push_back(identItem->dim[i]);
+        case CatCode::IDENFR : {
+            IdentItem* GET_identItem;
+            vector<int> GET_offsets;    // fake now
+            string GET_symbol;
+
+            GET_identItem = parseLVal(&GET_offsets, &GET_symbol);
+            if (GET_identItem != nullptr) {
+                param.type = GET_identItem->type;
+                for (auto i = GET_offsets.size(); i < GET_identItem->dim.size(); ++i)
+                    param.dim.push_back(GET_identItem->dim[i]);
             }
+
+            OUT_symbol = GET_symbol;
             break;
+        }
 
         default:
             throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized PrimaryExp";
@@ -507,11 +635,11 @@ Param Parser::parsePrimaryExp() { // '(' Exp ')' | LVal | Number
 void Parser::parseConstDecl() { // 'const' BType ConstDef { ',' ConstDef } ';'
     if (peek.type != CatCode::CONST_TK)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack const\n"; // unnecessary
-    if (nextWord().type != CatCode::INT_TK)
-        throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack BType(int)";
+    nextWord();
     do {
         nextWord(); parseConstDef();
     } while (peek.type == CatCode::COMMA);
+
     if (peek.type != CatCode::SEMICN) {
         /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDecl: lack ;"; */
         ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);                    // Error: i
@@ -524,35 +652,59 @@ void Parser::parseConstDecl() { // 'const' BType ConstDef { ',' ConstDef } ';'
 void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
     if (peek.type != CatCode::IDENFR)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack Ident";
+
+    string PUT_ident = peek.cont;
+    vector<int> PUT_dims;
     IdentItem* identItem = curContext->addIdent(peek, false);
     while (nextWord().type == CatCode::L_BRACK) {
-        nextWord(); parseConstExp();
-        if (identItem != nullptr) identItem->dim.push_back(0);  // update dim
+        int GET_number;
+        nextWord();
+
+        parseConstExp(GET_number);
+        PUT_dims.push_back(GET_number);
+        if (identItem != nullptr)
+            identItem->dim.push_back(GET_number);  // update dim
+
         if (peek.type != CatCode::R_BRACK) {
             /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: array lack ] to match ["; */
-            ErrorHandler::respond(ErrCode::LACK_R_BRACK, peek.lno);
+            ErrorHandler::respond(ErrCode::LACK_R_BRACK, peek.lno);                         // Error: k
             prevWord();
         }
     }
+    irBuilder.addItemDef(IROp::DEF_CON, to_string(PUT_dims.size()), PUT_ident);
+
     if (peek.type != CatCode::ASSIGN)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack =";
-    nextWord(); parseConstInitVal();
+    nextWord();
+    parseConstInitVal(PUT_ident, PUT_dims, 0);
+
+    irBuilder.addItemDefEnd(PUT_ident);
     genOutput("<ConstDef>");
 }
 
-void Parser::parseConstInitVal() { // ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'
+void Parser::parseConstInitVal(string IN_ident, vector<int> IN_dims, int IN_index) {
+    // ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'
     if (peek.type == CatCode::L_BRACE) {
         if (nextWord().type != CatCode::R_BRACE) { // [ ConstInitVal { ',' ConstInitVal } ] '}'
-            parseConstInitVal();
+            IN_dims.erase(IN_dims.begin());
+            int step = accumulate(IN_dims.begin(), IN_dims.end(), 1, multiplies<int>());
+
+            parseConstInitVal(IN_ident, IN_dims, IN_index);
+            IN_index += step;
             while (peek.type == CatCode::COMMA) {
-                nextWord(); parseConstInitVal();
+                nextWord();
+                parseConstInitVal(IN_ident, IN_dims, IN_index);
+                IN_index += step;
             }
             if (peek.type != CatCode::R_BRACE)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstInitVal: lack";
+                throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstInitVal: lack }";
         }
         nextWord();
     } else {
-        parseConstExp();
+        int GET_number;
+        IN_ident = IN_ident + "[" + to_string(IN_index) + "]";
+        parseConstExp(GET_number);
+        irBuilder.addItemDefInit(IN_ident, to_string(GET_number));
     }
     genOutput("<ConstInitVal>");
 }
@@ -575,35 +727,59 @@ void Parser::parseVarDecl() { // BType VarDef { ',' VarDef } ';'
 void Parser::parseVarDef() { // Ident { '[' ConstExp ']' } | Ident { '[' ConstExp ']' } '=' InitVal
     if (peek.type != CatCode::IDENFR)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] VarDef: lack Ident";
+
+    string PUT_ident = peek.cont;
+    vector<int> PUT_dims;
     IdentItem* identItem = curContext->addIdent(peek, true);
     while (nextWord().type == CatCode::L_BRACK) {
-        nextWord(); parseConstExp();
-        if (identItem != nullptr) identItem->dim.push_back(0);  // maybe we should wrapped it to an api
+        int GET_number;
+        nextWord();
+
+        parseConstExp(GET_number);
+        PUT_dims.push_back(GET_number);
+        if (identItem != nullptr)
+            identItem->dim.push_back(GET_number);  // maybe we should wrapped it to an api
+
         if (peek.type != CatCode::R_BRACK) {
             /*throw "[" + to_string(peek.lno) + " " + peek.cont + "] VarDef: array lack ] to match ["; */
             ErrorHandler::respond(ErrCode::LACK_R_BRACK, peek.lno);                         // Error: k
             prevWord();
         }
     }
+    irBuilder.addItemDef(IROp::DEF_VAR, to_string(PUT_dims.size()), PUT_ident);
+
     if (peek.type == CatCode::ASSIGN) { // ... '=' InitVal
-        nextWord(); parseInitVal();
+        nextWord();
+        parseInitVal(PUT_ident, PUT_dims, 0);
     }
+
+    irBuilder.addItemDefEnd(PUT_ident);
     genOutput("<VarDef>");
 }
 
-void Parser::parseInitVal() { // Exp | '{' [ InitVal { ',' InitVal } ] '}'
+void Parser::parseInitVal(string IN_ident, vector<int> IN_dims, int IN_index) {
+    // Exp | '{' [ InitVal { ',' InitVal } ] '}'
     if (peek.type == CatCode::L_BRACE) {
         if (nextWord().type != CatCode::R_BRACE) { // [ InitVal { ',' InitVal } ] '}'
-            parseInitVal();
+            IN_dims.erase(IN_dims.begin());
+            int step = accumulate(IN_dims.begin(), IN_dims.end(), 1, multiplies<int>());
+
+            parseInitVal(IN_ident, IN_dims, IN_index);
+            IN_index += step;
             while (peek.type == CatCode::COMMA) {
-                nextWord(); parseInitVal();
+                nextWord();
+                parseInitVal(IN_ident, IN_dims, IN_index);
+                IN_index += step;
             }
             if (peek.type != CatCode::R_BRACE)
-                throw "[" + to_string(peek.lno) + " " + peek.cont + "] InitVal: lack";
+                throw "[" + to_string(peek.lno) + " " + peek.cont + "] InitVal: lack }";
         }
         nextWord();
     } else {
-        parseExp();
+        string GET_symbol;
+        IN_ident = IN_ident + "[" + to_string(IN_index) + "]";
+        parseExp(&GET_symbol);
+        irBuilder.addItemDefInit(IN_ident, move(GET_symbol));
     }
     genOutput("<InitVal>");
 }
@@ -611,12 +787,15 @@ void Parser::parseInitVal() { // Exp | '{' [ InitVal { ',' InitVal } ] '}'
 void Parser::parseFuncDef() {
     /* get function type */
     Type ftype = parseFuncType();
+    string funcType = (ftype == Type::VOID) ? "void" : "int";
 
     /* get function name & lno */
     if (peek.type != CatCode::IDENFR)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] FuncDef: lack Ident";
-    string fname = peek.cont;
+    string funcName = peek.cont;
     int f_lno = peek.lno;
+
+    irBuilder.addItemDefFunc(funcType, funcName);
 
     /* get function parameters */
     vector<Param> params;
@@ -636,10 +815,13 @@ void Parser::parseFuncDef() {
     }
 
     /* got full function head so we can add it to the current symbol table */
-    curContext->addFunc(fname, ftype, params, f_lno);
+    curContext->addFunc(funcName, ftype, params, f_lno);
 
     /* parse function block and generate new symbol table */
     parseBlock(ftype != Type::VOID, params);
+
+    irBuilder.addItemDefEnd(funcName);
+
     genOutput("<FuncDef>");
 }
 
@@ -684,8 +866,10 @@ Param Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
         }
         param.dim.push_back(0);
         while (nextWord().type == CatCode::L_BRACK) { // { '[' ConstExp ']' }
-            nextWord(); parseConstExp();
-            param.dim.push_back(0); // value from parseConstExp()
+            int GET_number;
+            nextWord();
+            parseConstExp(GET_number);
+            param.dim.push_back(GET_number); // value from parseConstExp()
             if (peek.type != CatCode::R_BRACK) {
                 /* throw "[" + to_string(peek.lno) + " " + peek.cont + "]/
                  * FuncFParam: mul arrays param lack ] to match ["; */
@@ -694,16 +878,31 @@ Param Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
             }
         }
     }
+
+    string GET_param = param.name;
+    if (!param.dim.empty()) {
+        for (auto& index : param.dim) {
+            if (index == 0) GET_param += "[]";
+            else GET_param += "[" + to_string(index) + "]";
+        }
+    }
+    irBuilder.addItemDefFParam(GET_param, to_string(param.dim.size()));
+
     genOutput("<FuncFParam>");
     return param;
 }
 
 vector<Param> Parser::parseFuncRParams() {
+    string GET_symbol;
     vector<Param> params;
-    params.push_back(parseExp());
+
+    params.push_back(parseExp(&GET_symbol));
+    irBuilder.addItemLoadRParam(GET_symbol);
+
     while (peek.type == CatCode::COMMA) {
         nextWord();
-        params.push_back(parseExp());
+        params.push_back(parseExp(&GET_symbol));
+        irBuilder.addItemLoadRParam(GET_symbol);
     }
     genOutput("<FuncRParams>");
     return params;

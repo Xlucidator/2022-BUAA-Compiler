@@ -12,7 +12,7 @@
 using namespace std;
 
 vector<Word> wordList;
-bool Lexer::isprint = false;
+bool Lexer::isprint = true;
 
 void doLexicalAnalysis() {
     ifstream ifs;

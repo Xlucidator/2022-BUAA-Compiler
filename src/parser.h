@@ -10,9 +10,14 @@
 #include <stack>
 #include <fstream>
 #include <string>
+
+#include "tools.h"
 #include "lexer.h"
 #include "symbol.h"
 #include "errcode.h"
+#include "irbuilder.h"
+
+
 using namespace std;
 
 void doSyntaxAnalysis();
@@ -25,7 +30,7 @@ private:
     int cnt;
     Word peek;
     ofstream ofs;
-    bool isprint = false;
+    bool isprint = true;
 
     stack<int> records; // enabled snapshot in record
     bool inrecord = false;
@@ -35,6 +40,7 @@ private:
         inrecord = !records.empty();
         if (inrecord) {
             ErrorHandler::inEffect = false;
+            irBuilder.inEffect = false;
         }
     }
 
@@ -47,6 +53,7 @@ private:
             if (!inrecord) {
                 // only out of record can ErrorHandle came to effect
                 ErrorHandler::inEffect = true;
+                irBuilder.inEffect = true;
             }
         }
     }
@@ -75,19 +82,19 @@ public:
     inline void parseLAndExp();
     inline void parseEqExp();
     inline void parseRelExp();
-    inline Param parseAddExp();
-    inline Param parseMulExp();
-    Param parseUnaryExp();
-    Param parsePrimaryExp();
-    IdentItem* parseLVal(vector<int>* offsets);
+    inline Param parseAddExp(string& symbol);
+    inline Param parseMulExp(string& symbol);
+    Param parseUnaryExp(string& symbol);
+    Param parsePrimaryExp(string& symbol);
+    IdentItem* parseLVal(vector<int>* offsets, string* symbolLVal);
 
     // Decl
     void parseConstDecl();
     void parseConstDef();
-    void parseConstInitVal();
+    void parseConstInitVal(string ident, vector<int> dims, int index);
     void parseVarDecl();
     void parseVarDef();
-    void parseInitVal();
+    void parseInitVal(string ident, vector<int> dims, int index);
 
     // Func
     void parseFuncDef();
@@ -96,14 +103,14 @@ public:
     vector<Param> parseFuncRParams();
 
     // Terminal symbol wrappers
-    inline void parseNumber();
-    inline void parseUnaryOp();
+    inline void parseNumber(string& number);
+    inline void parseUnaryOp(string& unaryOp);
     inline Type parseBType();
     inline Type parseFuncType();
     // symbol wrappers
-    Param parseExp();
+    Param parseExp(string* symbol);
     void parseCond();
-    void parseConstExp();
+    void parseConstExp(int& number);
 };
 
 inline Word Parser::nextWord() {
@@ -134,8 +141,7 @@ inline Word Parser::preLook(int offset) {
 inline void Parser::parseLOrExp() { // LAndExp { '||' LAndExp }
     parseLAndExp();
     genOutput("<LOrExp>");
-    if (peek.type != CatCode::OR)
-        return;
+
     while (peek.type == CatCode::OR) {
         nextWord(); parseLAndExp();
         genOutput("<LOrExp>");
@@ -145,8 +151,7 @@ inline void Parser::parseLOrExp() { // LAndExp { '||' LAndExp }
 inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
     parseEqExp();
     genOutput("<LAndExp>");
-    if (peek.type != CatCode::AND)
-        return;
+
     while (peek.type == CatCode::AND) {
         nextWord(); parseEqExp();
         genOutput("<LAndExp>");
@@ -156,8 +161,7 @@ inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
 inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
     parseRelExp();
     genOutput("<EqExp>");
-    if (peek.type != CatCode::EQL && peek.type != CatCode::NEQ)
-        return;
+
     while (peek.type == CatCode::EQL || peek.type == CatCode::NEQ) {
         nextWord(); parseRelExp();
         genOutput("<EqExp>");
@@ -165,65 +169,98 @@ inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
 }
 
 inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp }
-    parseAddExp();
+    string GET_symbolBase;
+    string GET_symbolOther;
+
+    parseAddExp(GET_symbolBase);
     genOutput("<RelExp>");
-    if (peek.type != CatCode::LSS &&
-        peek.type != CatCode::GRE &&
-        peek.type != CatCode::LEQ &&
-        peek.type != CatCode::GEQ ) return;
+
     while (
             peek.type == CatCode::LSS ||
             peek.type == CatCode::GRE ||
             peek.type == CatCode::LEQ ||
             peek.type == CatCode::GEQ
             ) {
-        nextWord(); parseAddExp();
+        nextWord();
+        parseAddExp(GET_symbolOther);
         genOutput("<RelExp>");
     }
 }
 
-inline Param Parser::parseAddExp() { // MulExp { ('+' | '−') MulExp }
+inline Param Parser::parseAddExp(string& OUT_symbol) {
+    // MulExp { ('+' | '−') MulExp }
+    string GET_symbolBase;
+    string GET_symbolOther;
+    IROp GET_expOp;
+
     Param param;
-    param = parseMulExp();
+    param = parseMulExp(GET_symbolBase);
     genOutput("<AddExp>");
-    if (peek.type != CatCode::PLUS && peek.type != CatCode::MINU)
-        return param;
+
     while (peek.type == CatCode::PLUS || peek.type == CatCode::MINU) {
-        nextWord(); parseMulExp();
-        // let us assume that in exp all param-types are the same
+        GET_expOp = irBuilder.catCode2IROp.at(peek.type);
+        nextWord();
+        parseMulExp(GET_symbolOther); // mergeParam is not necessary
+        if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
+            GET_symbolBase = to_string(calculate(GET_symbolBase, GET_expOp, GET_symbolOther));
+        } else {
+            if (hasSign(GET_symbolOther)) { /* optimize: a - -t  ==> a + t */
+                reverseIROp(GET_expOp);
+                GET_symbolOther = GET_symbolOther.substr(1);
+            }
+            GET_symbolBase = irBuilder.addItemCalculateExp(GET_expOp, GET_symbolBase, GET_symbolOther);
+        }
         genOutput("<AddExp>");
     }
+    OUT_symbol = GET_symbolBase;
     return param;
 }
 
-inline Param Parser::parseMulExp() { // UnaryExp { ('*' | '/' | '%') UnaryExp }
+inline Param Parser::parseMulExp(string& OUT_symbol) {
+    // UnaryExp { ('*' | '/' | '%') UnaryExp }
+    string GET_symbolBase;
+    string GET_symbolOther;
+    IROp GET_expOp;
+
     Param param;
-    param = parseUnaryExp();
+    param = parseUnaryExp(GET_symbolBase);
     genOutput("<MulExp>");
-    if (peek.type != CatCode::MULT &&
-        peek.type != CatCode::DIV  &&
-        peek.type != CatCode::MOD ) return param;
+
     while (
             peek.type == CatCode::MULT ||
             peek.type == CatCode::DIV  ||
             peek.type == CatCode::MOD
             ) {
-        nextWord(); parseUnaryExp();
+        GET_expOp = irBuilder.catCode2IROp.at(peek.type);
+        nextWord();
+        parseUnaryExp(GET_symbolOther); // mergeParam is not necessary
+        if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
+            GET_symbolBase = to_string(calculate(GET_symbolBase, GET_expOp, GET_symbolOther));
+        } else {
+            if (hasSign(GET_symbolBase) && hasSign(GET_symbolOther)) { /* optimize: (-t)*(-t) ==> t*t */
+                GET_symbolBase = GET_symbolBase.substr(1);
+                GET_symbolOther = GET_symbolOther.substr(1);
+            }
+            GET_symbolBase = irBuilder.addItemCalculateExp(GET_expOp, GET_symbolBase, GET_symbolOther);
+        }
         genOutput("<MulExp>");
     }
+    OUT_symbol = GET_symbolBase;
     return param;
 }
 
-inline void Parser::parseUnaryOp() {
+inline void Parser::parseUnaryOp(string& OUT_unaryOp) {
     if (peek.type != CatCode::PLUS && peek.type != CatCode::MINU && peek.type != CatCode::NOT)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized UnaryOp";
+    OUT_unaryOp = peek.cont;
     nextWord();
     genOutput("<UnaryOp>");
 }
 
-inline void Parser::parseNumber() {
+inline void Parser::parseNumber(string& OUT_number) {
     if (peek.type != CatCode::INT_CON)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] unrecognized Number";
+    OUT_number = peek.cont;
     nextWord();
     genOutput("<Number>");
 }

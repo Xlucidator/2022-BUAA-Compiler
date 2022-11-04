@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <bitset>
 #include <fstream>
 #include <iostream>
 #include "catcode.h"
@@ -58,13 +59,17 @@ struct IRItem {
     IRItem(IROp o, string& l1, string& l2, string& r): op(o), label1(l1), label2(l2), res(r) {}
     IRItem(IROp o, string& l1): op(o), label1(l1), label2(""), res("") {}
     string toString() {
+        if (op == IROp::STORE_ARR || op == IROp::LOAD_ARR) {
+            return IROpToString(op) + " " + res + " " + label1 + "[" + label2 + "]";
+        }
         return IROpToString(op) + " " + res + " " + label1 + " " + label2;
     }
 };
 
+#define TMP_SIZE 128
+
 class IRBuilder {
 private:
-    int no = 1;
     string ZERO_STR = "0";
     string NULL_STR = "";
     string INT_STR  = "int";
@@ -74,8 +79,24 @@ private:
 
     vector<IRItem> IRs;
 
+    bitset<TMP_SIZE> tmpPools;
+
     string genTmpSymbol() {
-        return "@t" + to_string(no++);
+        for (int no = 1; no <= TMP_SIZE; ++no) {
+            if (!tmpPools[no]) {
+                tmpPools[no] = true;
+                return "@t" + to_string(no);
+            }
+        }
+        cout << "no space for tmp variable" << endl;
+        return "";
+    }
+
+    void freeTmpSymbol(string& tmpSymbol) {
+        if (tmpSymbol.substr(0,2) == "@t") {
+            int no = stoi(tmpSymbol.substr(2));
+            tmpPools[no] = false;
+        }
     }
 
 public:

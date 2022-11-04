@@ -86,6 +86,9 @@ IRBuilder::IRBuilder(vector<IRItem> &irs): IRs(irs) {
 
 string IRBuilder::addItemCalculateExp(IROp op, string&& label1, string&& label2) {
     if (inEffect) {
+        freeTmpSymbol(label1);
+        freeTmpSymbol(label2);
+
         string tmpSymbol = genTmpSymbol();
         IRs.emplace_back(IRItem(op, label1, label2, tmpSymbol));
         return tmpSymbol;
@@ -95,6 +98,9 @@ string IRBuilder::addItemCalculateExp(IROp op, string&& label1, string&& label2)
 
 string IRBuilder::addItemCalculateExp(IROp op, string& label1, string& label2) {
     if (inEffect) {
+        freeTmpSymbol(label1);
+        freeTmpSymbol(label2);
+
         string tmpSymbol = genTmpSymbol();
         IRs.emplace_back(IRItem(op, label1, label2, tmpSymbol));
         return tmpSymbol;
@@ -104,6 +110,9 @@ string IRBuilder::addItemCalculateExp(IROp op, string& label1, string& label2) {
 
 string IRBuilder::addItemCalculateExp(IROp op, string& label1, string&& label2) {
     if (inEffect) {
+        freeTmpSymbol(label1);
+        freeTmpSymbol(label2);
+
         string tmpSymbol = genTmpSymbol();
         IRs.emplace_back(IRItem(op, label1, label2, tmpSymbol));
         return tmpSymbol;
@@ -129,6 +138,7 @@ string IRBuilder::addItemLoadArray(string &array, string &offset) {
 void IRBuilder::addItemStoreArray(string &array, string &offset, string &ident) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::STORE_ARR, array, offset, ident));
+        freeTmpSymbol(ident);
     }
 }
 
@@ -147,6 +157,7 @@ void IRBuilder::addItemCallFunc(string& funcName) {
 void IRBuilder::addItemFuncReturn(string& retValue) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::RET, retValue));
+        freeTmpSymbol(retValue);
     }
 }
 

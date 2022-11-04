@@ -4,6 +4,7 @@ cmake-build-debug
 *.zip
 
 *.exe
+*.asm
 
 testfile.txt
 output.txt

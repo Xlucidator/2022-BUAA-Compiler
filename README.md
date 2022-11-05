@@ -70,3 +70,4 @@ ConstInitVal → ConstExp | '{' ConstInitVal { ',' ConstInitVal } '}'
 - 视情况，为每个类补充“拷贝构造函数”和”移动构造函数“
 - 将.h的具体函数代码移至.cpp中
 - 中间代码的临时变量数值，只递增改为仿造OS中的ASID分配方式，并用位图存储
+- 梳理头文件引用，现在是随便引

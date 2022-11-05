@@ -124,11 +124,14 @@ string IRBuilder::addItemCalculateExp(IROp op, string& label1, string&& label2) 
 void IRBuilder::addItemAssign(string& lvalue, string& rvalue) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::ADD, rvalue, ZERO_STR, lvalue));
+        freeTmpSymbol(rvalue);
     }
 }
 
 string IRBuilder::addItemLoadArray(string &array, string &offset) {
     if (inEffect) {
+        freeTmpSymbol(offset);
+
         string tmpSymbol = genTmpSymbol();
         IRs.emplace_back(IRItem(IROp::LOAD_ARR, array, offset, tmpSymbol));
         return tmpSymbol;
@@ -139,6 +142,7 @@ string IRBuilder::addItemLoadArray(string &array, string &offset) {
 void IRBuilder::addItemStoreArray(string &array, string &offset, string &ident) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::STORE_ARR, array, offset, ident));
+        freeTmpSymbol(offset);
         freeTmpSymbol(ident);
     }
 }
@@ -146,6 +150,7 @@ void IRBuilder::addItemStoreArray(string &array, string &offset, string &ident) 
 void IRBuilder::addItemLoadRParam(string& rParam) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::RPARA, rParam));
+        freeTmpSymbol(rParam);
     }
 }
 
@@ -165,12 +170,14 @@ void IRBuilder::addItemFuncReturn(string& retValue) {
 void IRBuilder::addItemPrintf(string& formatString) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::PRINTF, formatString));
+        freeTmpSymbol(formatString);
     }
 }
 
 void IRBuilder::addItemPrintf(string&& formatString) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::PRINTF, formatString));
+        freeTmpSymbol(formatString);
     }
 }
 
@@ -183,9 +190,10 @@ string IRBuilder::addItemScanf() {
     return "";
 }
 
-void IRBuilder::addItemDef(IROp defOp, string&& dimSize, string& ident) {
+void IRBuilder::addItemDef(IROp defOp, string&& indexSize, string& identName, bool isArray) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(defOp, INT_STR, dimSize, ident));
+        string type = (isArray) ? "array" : "int" ;
+        IRs.emplace_back(IRItem(defOp, type, indexSize, identName));
     }
 }
 

@@ -16,8 +16,8 @@
 using namespace std;
 
 enum struct IROp {  // | op | label1 | label2 | res |
-    DEF_CON,        //   *     int       0       a      <-- const int a = 3;
-    DEF_VAR,        //   *     int       1       b      <-- int b[3] = {1,2,3};
+    DEF_CON,        //   *     int       1       a      <-- const int a = 3;
+    DEF_VAR,        //   *     int       3       b      <-- int b[3] = {1,2,3};
     DEF_INIT,       //   *      3               b[2]    <-- (from above)
 
     DEF_END,        //   *                     ident    <-- mark end of def
@@ -135,7 +135,7 @@ public:
 
     string addItemScanf();
 
-    void addItemDef(IROp defOp, string&& dimSize, string& ident);
+    void addItemDef(IROp defOp, string&& dimSize, string& ident, bool isArray);
     void addItemDefInit(string& ident, string&& value);
 
     void addItemDefFunc(string& funcType, string& ident);

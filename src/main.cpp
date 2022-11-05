@@ -6,12 +6,13 @@
 #include <cstdio>
 #include "lexer.h"
 #include "parser.h"
+#include "generator.h"
 
 using namespace std;
 
 int main() {
     doLexicalAnalysis();
     doSyntaxAnalysis();
-
+    doMipsGeneration();
     return 0;
 }

@@ -44,7 +44,10 @@ enum struct IROp {  // | op | label1 | label2 | res |
     STORE_ARR,      //   *     arr      3        t1     <-- a[3]=t1
 
     PRINTF,
-    SCANF
+    SCANF,
+
+    END,
+    P_HOLDER
 };
 
 void reverseIROp(IROp& input);
@@ -56,6 +59,7 @@ struct IRItem {
     string label2;
     string res;
 
+    IRItem(): op(IROp::P_HOLDER), label1(""), label2(""), res("") {}
     IRItem(IROp o, string& l1, string& l2, string& r): op(o), label1(l1), label2(l2), res(r) {}
     IRItem(IROp o, string& l1): op(o), label1(l1), label2(""), res("") {}
     string toString() {
@@ -77,7 +81,7 @@ private:
     ofstream ofs;
     bool isprint = true;
 
-    vector<IRItem> IRs;
+    vector<IRItem>& IRs;
 
     bitset<TMP_SIZE> tmpPools;
 
@@ -109,7 +113,6 @@ public:
             {CatCode::MOD   , IROp::MOD },
     };
 
-    IRBuilder() = default;
     explicit IRBuilder(vector<IRItem> &irs);
 
     void printIRs();

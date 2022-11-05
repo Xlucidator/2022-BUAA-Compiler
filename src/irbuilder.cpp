@@ -43,6 +43,7 @@ string IROpToString(IROp op) {
         case IROp::STORE_ARR: return "STORE_ARR";
         case IROp::PRINTF   : return "PRINTF"   ;
         case IROp::SCANF    : return "SCANF"    ;
+        case IROp::END      : return "END"      ;
         default: return "";
     }
 }

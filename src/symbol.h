@@ -69,6 +69,7 @@ class SymbolTable {
 private:
     map<string, SymbolItem*> items;
     SymbolTable* preContext = nullptr;
+    int layerNo = 0;
     bool needReturn = false;    // deal with "inner return for void"
     bool inLoop = false;        // deal with "continue out of while"
 
@@ -77,12 +78,14 @@ public:
     /* from normal block */
     SymbolTable(SymbolTable* pre, bool new_inLoop) {
         preContext = pre;
+        layerNo = pre->layerNo + 1;
         needReturn = pre->needReturn;
         inLoop = pre->isInLoop() || new_inLoop;
     }
     /* from function block -> init */
     SymbolTable(SymbolTable* pre, vector<Param>& preVars, bool needReturnValue) {
         preContext = pre;
+        layerNo = pre->layerNo + 1;
         needReturn = needReturnValue;
         inLoop = false;
         for (auto& var: preVars) {
@@ -97,6 +100,10 @@ public:
 
     SymbolTable* getPreContext() {
         return preContext;
+    }
+
+    int getLayerNo() {
+        return layerNo;
     }
 
     bool isNeedReturn() {

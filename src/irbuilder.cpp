@@ -121,6 +121,18 @@ string IRBuilder::addItemCalculateExp(IROp op, string& label1, string&& label2) 
     return "";
 }
 
+string IRBuilder::addItemCalculateExp(IROp op, string&& label1, string& label2) {
+    if (inEffect) {
+        freeTmpSymbol(label1);
+        freeTmpSymbol(label2);
+
+        string tmpSymbol = genTmpSymbol();
+        IRs.emplace_back(IRItem(op, label1, label2, tmpSymbol));
+        return tmpSymbol;
+    }
+    return "";
+}
+
 void IRBuilder::addItemAssign(string& lvalue, string& rvalue) {
     if (inEffect) {
         IRs.emplace_back(IRItem(IROp::ADD, rvalue, ZERO_STR, lvalue));
@@ -209,10 +221,10 @@ void IRBuilder::addItemDefFunc(string& funcType, string& ident) {
     }
 }
 
-void IRBuilder::addItemDefFParam(string& paramName, string&& dimSize) {
+void IRBuilder::addItemDefFParam(string& paramName, string&& dimSize, string& paramType) {
     // ident will carry dim info
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::FPARA, INT_STR, dimSize, paramName));
+        IRs.emplace_back(IRItem(IROp::FPARA, paramType, dimSize, paramName));
     }
 }
 

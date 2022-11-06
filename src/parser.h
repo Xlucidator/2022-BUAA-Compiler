@@ -204,9 +204,13 @@ inline Param Parser::parseAddExp(string& OUT_symbol) {
         if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
             GET_symbolBase = to_string(calculate(GET_symbolBase, GET_expOp, GET_symbolOther));
         } else {
+            if (!isnumber(GET_symbolBase) && hasSign(GET_symbolBase)) {
+                removeSign(GET_symbolBase);
+                GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
+            }
             if (hasSign(GET_symbolOther)) { /* optimize: a - -t  ==> a + t */
                 reverseIROp(GET_expOp);
-                GET_symbolOther = GET_symbolOther.substr(1);
+                removeSign(GET_symbolOther);
             }
             GET_symbolBase = irBuilder.addItemCalculateExp(GET_expOp, GET_symbolBase, GET_symbolOther);
         }
@@ -238,8 +242,14 @@ inline Param Parser::parseMulExp(string& OUT_symbol) {
             GET_symbolBase = to_string(calculate(GET_symbolBase, GET_expOp, GET_symbolOther));
         } else {
             if (hasSign(GET_symbolBase) && hasSign(GET_symbolOther)) { /* optimize: (-t)*(-t) ==> t*t */
-                GET_symbolBase = GET_symbolBase.substr(1);
-                GET_symbolOther = GET_symbolOther.substr(1);
+                removeSign(GET_symbolBase);
+                removeSign(GET_symbolOther);
+            } else if (!isnumber(GET_symbolBase) && hasSign(GET_symbolBase)) {
+                removeSign(GET_symbolBase);
+                GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
+            } else if (!isnumber(GET_symbolOther) && hasSign(GET_symbolOther)) {
+                removeSign(GET_symbolOther);
+                GET_symbolOther = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolOther);
             }
             GET_symbolBase = irBuilder.addItemCalculateExp(GET_expOp, GET_symbolBase, GET_symbolOther);
         }

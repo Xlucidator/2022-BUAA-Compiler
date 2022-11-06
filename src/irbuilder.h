@@ -23,17 +23,18 @@ enum struct IROp {  // | op | label1 | label2 | res |
     DEF_END,        //   *                     ident    <-- mark end of def
 
     DEF_FUN,        //   *   int/void           foo     <-- int/void foo(int a, int b[], int c[][3])
-    FPARA,          //   *     int       2     c[][3]   <-- (from above)
+    FPARA,          //   *   int[][3]    2       c      <-- (from above)
     RET,            //   *    ident                     <-- return ident
 
-    RPARA,          //   *
-    CALL_FUN,       //   *
+    RPARA,          //   *     rt                       <-- foo(rt, ...)
+    CALL_FUN,       //   *     foo                      <-- (from above)
+    GET_RET,        //   *     @t1                      <-- foo() => @t1
 
-    ADD,
-    MIN,
-    MUL,
-    DIV,
-    MOD,
+    ADD,            //   *     rs       rt      rd      <-- rd = rs + rt
+    MIN,            //   *     rs       rt      rd      <-- rd = rs - rt
+    MUL,            //   *     rs       rt      rd      <-- rd = rs - rt
+    DIV,            //   *     rs       rt      rd      <-- rd = rs - rt
+    MOD,            //   *     rs       rt      rd      <-- rd = rs - rt
 
     LABEL,
     CMP,
@@ -43,8 +44,8 @@ enum struct IROp {  // | op | label1 | label2 | res |
     LOAD_ARR,       //   *     arr      3        t1     <-- t1=a[3]
     STORE_ARR,      //   *     arr      3        t1     <-- a[3]=t1
 
-    PRINTF,
-    SCANF,
+    PRINTF,         //   *    content                   <-- transform to (printf content)
+    SCANF,          //   *     @t1                      <-- getint: transform to (scanf @t1)
 
     END,
     P_HOLDER
@@ -70,7 +71,7 @@ struct IRItem {
     }
 };
 
-#define TMP_SIZE 128
+#define TMP_SIZE (128)
 
 class IRBuilder {
 private:
@@ -86,7 +87,7 @@ private:
     bitset<TMP_SIZE> tmpPools;
 
     string genTmpSymbol() {
-        for (int no = 1; no <= TMP_SIZE; ++no) {
+        for (int no = 0; no < TMP_SIZE; ++no) {
             if (!tmpPools[no]) {
                 tmpPools[no] = true;
                 return "@t" + to_string(no);
@@ -120,6 +121,7 @@ public:
     string addItemCalculateExp(IROp op, string&& label1, string&& label2);
     string addItemCalculateExp(IROp op, string& label1, string& label2);
     string addItemCalculateExp(IROp op, string& label1, string&& label2);
+    string addItemCalculateExp(IROp op, string&& label1, string& label2);
 
     void addItemAssign(string& lvalue, string& rvalue);
 
@@ -139,7 +141,7 @@ public:
     void addItemDefInit(string& ident, string&& value);
 
     void addItemDefFunc(string& funcType, string& ident);
-    void addItemDefFParam(string& paramName, string&& dimSize);
+    void addItemDefFParam(string& paramName, string&& dimSize, string& paramType);
 
     void addItemDefEnd(string& ident);
 };

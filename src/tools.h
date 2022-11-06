@@ -21,6 +21,12 @@ inline bool hasSign(std::string& str) {
     return str[0] == '-';
 }
 
+inline void removeSign(std::string& str) {
+    if (str[0] == '-') {
+        str = str.substr(1);
+    }
+}
+
 inline bool isnumber(std::string& str) {
     if (str[0] == '-')
         return isdigit(str[1]);
@@ -38,6 +44,12 @@ inline string getArrayIndex(std::string& str) {
 
 inline string getArrayIdent(std::string& str) {
     return str.substr(0, str.find('['));
+}
+
+inline string stripQuot(std::string& str) {
+    if (str[0] != '\"')
+        return str;
+    return str.substr(1, str.length()-2);
 }
 
 int calculate(std::string& num1, IROp op, std::string& num2);

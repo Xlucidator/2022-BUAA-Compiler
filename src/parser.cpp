@@ -256,7 +256,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] printf: lack format-string";
 
             int format_char_cnt = 0;
-            string formatString = peek.cont.substr(1, peek.cont.length()-2);
+            string formatString = stripQuot(peek.cont);
             vector<string> GET_pureStrings;
             if (!ErrorHandler::checkFormatString(peek.cont, format_char_cnt)) {
                 ErrorHandler::respond(ErrCode::INVALID_FSTRING, printf_lno);
@@ -281,7 +281,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                 if (!GET_pureStrings[i].empty()) {
                     irBuilder.addItemPrintf("\"" + GET_pureStrings[i] + "\"");
                 }
-                if (i != 0) irBuilder.addItemPrintf(GET_symbols[i-1]);
+                if (i < GET_symbols.size()) irBuilder.addItemPrintf(GET_symbols[i]);
             }
 
             if (peek.type != CatCode::R_PARENT) {
@@ -396,6 +396,10 @@ Param Parser::parseExp(string* OUT_symbol) {
     param = parseAddExp(GET_symbol);
     genOutput("<Exp>");
     if (OUT_symbol != nullptr) {
+        if (hasSign(GET_symbol)) {
+            removeSign(GET_symbol);
+            GET_symbol = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbol);
+        }
         (*OUT_symbol) = GET_symbol;
     }
     return param;
@@ -562,7 +566,7 @@ Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [Fun
                 }
 
                 irBuilder.addItemCallFunc(GET_funcName);
-                if (param.type != Type::VOID) {
+                if (param.type != Type::VOID) { // TODO: use a new IR - GET_RET
                     OUT_symbol = irBuilder.addItemCalculateExp(IROp::ADD, "RET", "0");
                 } else {
                     OUT_symbol = "";
@@ -668,7 +672,7 @@ void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
     string PUT_ident = peek.cont;
     vector<int> PUT_dims;
     IdentItem* identItem = curContext->addIdent(peek, false);
-    while (nextWord().type == CatCode::L_BRACK) {
+    while (nextWord().type == CatCode::L_BRACK) { // has []
         int GET_number;
         nextWord();
 
@@ -683,7 +687,8 @@ void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
             prevWord();
         }
     }
-    irBuilder.addItemDef(IROp::DEF_CON, to_string(PUT_dims.size()), PUT_ident);
+    int indexSize = accumulate(PUT_dims.begin(), PUT_dims.end(), 1, multiplies<int>());
+    irBuilder.addItemDef(IROp::DEF_CON, to_string(indexSize), PUT_ident, !PUT_dims.empty());
 
     if (peek.type != CatCode::ASSIGN)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] ConstDef: lack =";
@@ -758,7 +763,8 @@ void Parser::parseVarDef() { // Ident { '[' ConstExp ']' } | Ident { '[' ConstEx
             prevWord();
         }
     }
-    irBuilder.addItemDef(IROp::DEF_VAR, to_string(PUT_dims.size()), PUT_ident);
+    int indexSize = accumulate(PUT_dims.begin(), PUT_dims.end(), 1, multiplies<int>());
+    irBuilder.addItemDef(IROp::DEF_VAR, to_string(indexSize), PUT_ident, !PUT_dims.empty());
 
     if (peek.type == CatCode::ASSIGN) { // ... '=' InitVal
         nextWord();
@@ -892,29 +898,35 @@ Param Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
     }
 
     string GET_param = param.name;
+    string GET_type = "int";
     if (!param.dim.empty()) {
         for (auto& index : param.dim) {
-            if (index == 0) GET_param += "[]";
-            else GET_param += "[" + to_string(index) + "]";
+            if (index == 0) GET_type += "[]";
+            else GET_type += "[" + to_string(index) + "]";
         }
     }
-    irBuilder.addItemDefFParam(GET_param, to_string(param.dim.size()));
+    irBuilder.addItemDefFParam(GET_param, to_string(param.dim.size()), GET_type);
 
     genOutput("<FuncFParam>");
     return param;
 }
 
 vector<Param> Parser::parseFuncRParams() {
+    vector<string> collectRParams;
     string GET_symbol;
     vector<Param> params;
 
     params.push_back(parseExp(&GET_symbol));
-    irBuilder.addItemLoadRParam(GET_symbol);
+    collectRParams.emplace_back(GET_symbol);
 
     while (peek.type == CatCode::COMMA) {
         nextWord();
         params.push_back(parseExp(&GET_symbol));
-        irBuilder.addItemLoadRParam(GET_symbol);
+        collectRParams.emplace_back(GET_symbol);
+    }
+
+    for (string& symbol: collectRParams) {
+        irBuilder.addItemLoadRParam(symbol);
     }
     genOutput("<FuncRParams>");
     return params;

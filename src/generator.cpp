@@ -145,6 +145,7 @@ void Generator::genLocalVar() {
 void Generator::genFuncDef() {
     /* peek.op == IROp::DEF_FUNC */
     resetFPOffset();    // switch to new function frame $fp
+    resetRegFile();     // new function should always have clear context
     string funcName = peek.res;
     textSeg.push_back(funcName + ":");
 
@@ -269,13 +270,22 @@ void Generator::genFuncCall() {
     /* get something to store */
     vector<string> backUpList;  // list which is to sw to the addr of $sp
     string content;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < SREG_SIZE; ++i) {
         if (!s_reg[i].empty()) {
             // cout << s_reg[i] << endl;
             content = "$s" + to_string(i) + " " + to_string(sp_offset) + "($sp)";
             sp_offset += 4;
             backUpList.emplace_back(content);
             // s_reg[i] = "";
+        }
+    }
+    for (int i = 0; i < TREG_SIZE-1; ++i) {
+        if (!t_reg[i].empty()) {
+            // cout << t_reg[i] << endl;
+            content = "$t" + to_string(i) + " " + to_string(sp_offset) + "($sp)";
+            sp_offset += 4;
+            backUpList.emplace_back(content);
+            // t_reg[i] = "";
         }
     }
     content = "$ra " + to_string(sp_offset) + "($sp)";

@@ -94,6 +94,13 @@ public:
         fp_offset = 0;
     }
 
+    void resetRegFile() {
+        for (string& reg : s_reg)
+            reg = "";
+        for (string& reg : t_reg)
+            reg = "";
+    }
+
     void addConstValue(string& name, string& value) {
         // TODO: const name will be different
         constRecords[name] = value;

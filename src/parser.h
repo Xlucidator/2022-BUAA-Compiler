@@ -203,13 +203,16 @@ inline Param Parser::parseAddExp(string& OUT_symbol) {
         nextWord();
         parseMulExp(GET_symbolOther); // mergeParam is not necessary
         if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
+            // both symbols are number -> calculate at once
             GET_symbolBase = to_string(calculate(GET_symbolBase, GET_expOp, GET_symbolOther));
         } else {
             if (!isnumber(GET_symbolBase) && hasSign(GET_symbolBase)) {
+                // symbolBase is variable with '-', need to wrap it
                 removeSign(GET_symbolBase);
                 GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
             }
             if (hasSign(GET_symbolOther)) { /* optimize: a - -t  ==> a + t */
+                // symbolOther has '-', merge is to expOp
                 reverseIROp(GET_expOp);
                 removeSign(GET_symbolOther);
             }

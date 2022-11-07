@@ -16,7 +16,7 @@ IRBuilder irBuilder(IRList);  // NOLINT
 void reverseIROp(IROp& input) {
     if (input == IROp::ADD)
         input = IROp::MIN;
-    if (input == IROp::MIN)
+    else if (input == IROp::MIN)
         input = IROp::ADD;
 }
 

@@ -247,6 +247,7 @@ void Generator::genStmt() {
             inst = "move $v0 " + from;
             textSeg.emplace_back(inst);
             nextIR();
+            break;
         }
 
         default:

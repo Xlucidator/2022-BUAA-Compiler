@@ -66,7 +66,7 @@ inline std::string stripQuot(std::string& str) {
 
 // has no side effect
 inline std::string markUniqueIdent(std::string& str) {
-    if (isnumber(str) || istmp(str) || isformatstr(str) || str.find('#') != std::string::npos) {
+    if (isnumber(str) || istmp(str) || isformatstr(str) || str == "RET" || str.find('#') != std::string::npos) {
         // number, tmpVar, has been marked  -> do not modify
         return str;
     }

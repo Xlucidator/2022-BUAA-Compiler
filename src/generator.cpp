@@ -221,8 +221,8 @@ void Generator::genStmt() {
         case IROp::MOD: {
             string rd = useNameFromReg(peek.res, USE_TO);
             string rs = useNameFromReg(peek.label1, USE_FROM);
-            string rt = useNameFromReg(peek.label2, USE_FROM);
-            inst = "div " + rs + " " + rt;              // rd will get high-32bit of the res (HI)
+            string rt = useName(peek.label2, USE_FROM);
+            inst = "div $0 " + rs + " " + rt;              // rd will get high-32bit of the res (HI)
             textSeg.emplace_back(inst);
             inst = "mfhi " + rd;
             textSeg.emplace_back(inst);

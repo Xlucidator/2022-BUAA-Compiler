@@ -82,3 +82,7 @@ ConstInitVal → ConstExp | '{' ConstInitVal { ',' ConstInitVal } '}'
 - 视情况，为每个类补充“拷贝构造函数”和”移动构造函数“
 - 将.h的具体函数代码移至.cpp中
 - 梳理头文件引用，现在是随便引
+
+
+
+除法（尤其是%，纯数（const value）的话可以优化）

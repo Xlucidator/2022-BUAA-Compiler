@@ -106,6 +106,20 @@ void Parser::parseBlock(bool needReturnValue, vector<Param>& funcParams) {  // i
     auto funcScope = new SymbolTable(curContext, funcParams, needReturnValue);
     curContext = funcScope;
 
+    // after which the params will be added to the new (function type) symbol table and curContext is switched
+    // this is the exact right time to generate IROp::FPARA!
+    for (auto& param : funcParams) {
+        string paramName = param.name;
+        string paramType = "int";
+        if (!param.dim.empty()) {
+            for (auto &index : param.dim) {
+                if (index == 0) paramType += "[]";
+                else paramType += "[" + to_string(index) + "]";
+            }
+        }
+        irBuilder.addItemDefFParam(paramName, to_string(param.dim.size()), paramType);
+    }
+
     ReturnCheck returnCheck;
     nextWord();
     while (peek.type != CatCode::R_BRACE) {
@@ -719,9 +733,8 @@ void Parser::parseConstInitVal(string IN_ident, vector<int> IN_dims, int IN_inde
         nextWord();
     } else {
         int GET_number;
-        IN_ident = IN_ident + "[" + to_string(IN_index) + "]";
         parseConstExp(GET_number);
-        irBuilder.addItemDefInit(IN_ident, to_string(GET_number));
+        irBuilder.addItemDefInit(IN_ident, to_string(IN_index), to_string(GET_number));
     }
     genOutput("<ConstInitVal>");
 }
@@ -795,9 +808,8 @@ void Parser::parseInitVal(string IN_ident, vector<int> IN_dims, int IN_index) {
         nextWord();
     } else {
         string GET_symbol;
-        IN_ident = IN_ident + "[" + to_string(IN_index) + "]";
         parseExp(&GET_symbol);
-        irBuilder.addItemDefInit(IN_ident, move(GET_symbol));
+        irBuilder.addItemDefInit(IN_ident, to_string(IN_index), move(GET_symbol));
     }
     genOutput("<InitVal>");
 }
@@ -896,16 +908,6 @@ Param Parser::parseFuncFParam() { // BType Ident ['[' ']' { '[' ConstExp ']' }]
             }
         }
     }
-
-    string GET_param = param.name;
-    string GET_type = "int";
-    if (!param.dim.empty()) {
-        for (auto& index : param.dim) {
-            if (index == 0) GET_type += "[]";
-            else GET_type += "[" + to_string(index) + "]";
-        }
-    }
-    irBuilder.addItemDefFParam(GET_param, to_string(param.dim.size()), GET_type);
 
     genOutput("<FuncFParam>");
     return param;

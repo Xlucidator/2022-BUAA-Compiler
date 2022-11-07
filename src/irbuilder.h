@@ -18,7 +18,7 @@ using namespace std;
 enum struct IROp {  // | op | label1 | label2 | res |
     DEF_CON,        //   *     int       1       a      <-- const int a = 3;
     DEF_VAR,        //   *     int       3       b      <-- int b[3] = {1,2,3};
-    DEF_INIT,       //   *      3               b[2]    <-- (from above)
+    DEF_INIT,       //   *      3       [2]      b      <-- (from above) b[2] = 3;
 
     DEF_END,        //   *                     ident    <-- mark end of def
 
@@ -61,8 +61,15 @@ struct IRItem {
     string res;
 
     IRItem(): op(IROp::P_HOLDER), label1(""), label2(""), res("") {}
+
     IRItem(IROp o, string& l1, string& l2, string& r): op(o), label1(l1), label2(l2), res(r) {}
+    IRItem(IROp o, string&& l1, string&& l2, string& r): op(o), label1(l1), label2(l2), res(r) {}
+    IRItem(IROp o, string&& l1, string& l2, string&& r): op(o), label1(l1), label2(l2), res(r) {}
+    IRItem(IROp o, string&& l1, string& l2, string& r): op(o), label1(l1), label2(l2), res(r) {}
+    IRItem(IROp o, string& l1, string& l2, string&& r): op(o), label1(l1), label2(l2), res(r) {}
+
     IRItem(IROp o, string& l1): op(o), label1(l1), label2(""), res("") {}
+    IRItem(IROp o, string&& l1): op(o), label1(l1), label2(""), res("") {}
     string toString() {
         if (op == IROp::STORE_ARR || op == IROp::LOAD_ARR) {
             return IROpToString(op) + " " + res + " " + label1 + "[" + label2 + "]";
@@ -98,7 +105,7 @@ private:
     }
 
     void freeTmpSymbol(string& tmpSymbol) {
-        if (tmpSymbol.substr(0,2) == "@t") {
+        if (tmpSymbol.substr(0,2) == "@t") { // is tmpSymbol
             int no = stoi(tmpSymbol.substr(2));
             tmpPools[no] = false;
         }
@@ -138,9 +145,9 @@ public:
     string addItemScanf();
 
     void addItemDef(IROp defOp, string&& dimSize, string& ident, bool isArray);
-    void addItemDefInit(string& ident, string&& value);
+    void addItemDefInit(string& ident, string&& index, string&& value);
 
-    void addItemDefFunc(string& funcType, string& ident);
+    void addItemDefFunc(string& funcType, string& funcName);
     void addItemDefFParam(string& paramName, string&& dimSize, string& paramType);
 
     void addItemDefEnd(string& ident);

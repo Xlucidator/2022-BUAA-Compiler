@@ -56,6 +56,18 @@ ConstInitVal → ConstExp | '{' ConstInitVal { ',' ConstInitVal } '}'
 
 
 
+生成mips
+
+- 临时变量消除
+- 变量名变成唯一标识： 通过加上#layerNo#来区分
+- t寄存器也需要保存
+
+
+
+- DEF_END 和 DEF_FUN_END 可能还是得区分一下（但好像不影响正确性）
+
+
+
 ## 七. 代码优化设计 
 
 > 编码前的设计、编码完成之后的修改，未选择MIPS代码生成的同学无需完成此项内容
@@ -69,5 +81,4 @@ ConstInitVal → ConstExp | '{' ConstInitVal { ',' ConstInitVal } '}'
 - 看看有没有可以改为emplace_back()的vector容器操作
 - 视情况，为每个类补充“拷贝构造函数”和”移动构造函数“
 - 将.h的具体函数代码移至.cpp中
-- 中间代码的临时变量数值，只递增改为仿造OS中的ASID分配方式，并用位图存储
 - 梳理头文件引用，现在是随便引

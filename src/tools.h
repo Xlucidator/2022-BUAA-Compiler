@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include "symbol.h"
 #include "irbuilder.h"
 
 /* Usage:
@@ -37,19 +38,42 @@ inline bool isarray(std::string& str) {
     return str.find('[') != std::string::npos;
 }
 
-inline string getArrayIndex(std::string& str) {
+inline bool istmp(std::string& str) {
+    if (str[0] == '-')
+        return str.substr(1,2) == "@t";
+    return str.substr(0,2) == "@t";
+}
+
+inline bool isformatstr(std::string& str) {
+    return str[0] == '\"';
+}
+
+inline std::string getArrayIndex(std::string& str) {
     std::string::size_type begin = str.find('['), end = str.find(']');
     return str.substr(begin+1, end-begin-1);
 }
 
-inline string getArrayIdent(std::string& str) {
+inline std::string getArrayIdent(std::string& str) {
     return str.substr(0, str.find('['));
 }
 
-inline string stripQuot(std::string& str) {
+// has no side effect
+inline std::string stripQuot(std::string& str) {
     if (str[0] != '\"')
         return str;
     return str.substr(1, str.length()-2);
+}
+
+// has no side effect
+inline std::string markUniqueIdent(std::string& str) {
+    if (isnumber(str) || istmp(str) || isformatstr(str) || str.find('#') != std::string::npos) {
+        // number, tmpVar, has been marked  -> do not modify
+        return str;
+    }
+    int identTableNo = curContext->locateIdentTableNo(str);
+    if (identTableNo == 0)   // global table -> do not modify
+        return str;
+    return str + "#" + to_string(identTableNo);
 }
 
 int calculate(std::string& num1, IROp op, std::string& num2);

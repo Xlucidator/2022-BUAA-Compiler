@@ -37,11 +37,10 @@ struct Param {  // function parameter -> a parameter exp will return
 
 /*========== item define ==========*/
 struct SymbolItem {
-    unsigned int const no = no_cnt++;
+    // unsigned int const no = no_cnt++;
     string name;
     Kind kind;
     Type type;
-    int addr = 0;
 
     SymbolItem(string& n, Kind k, Type t): name(n), kind(k), type(t) {}
     virtual ~SymbolItem() = default;
@@ -74,6 +73,7 @@ private:
     bool inLoop = false;        // deal with "continue out of while"
 
 public:
+    int const tableNo = no_cnt++;
     SymbolTable() = default;
     /* from normal block */
     SymbolTable(SymbolTable* pre, bool new_inLoop) {
@@ -136,6 +136,16 @@ public:
         if (preContext != nullptr)
             return preContext->haveIdent(identName);
         return false;
+    }
+
+    int locateIdentTableNo(string& identName) {
+        SymbolTable* tmp = this;
+        while (tmp != nullptr) {
+            if (tmp->hasIdent(identName))
+                return tmp->tableNo;
+            tmp = tmp->preContext;
+        }
+        return -1;
     }
 
     IdentItem* addIdent(Word& word, bool modifiable) {

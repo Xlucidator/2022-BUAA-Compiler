@@ -3,6 +3,7 @@
 //
 
 #include "irbuilder.h"
+#include "tools.h"
 
 #include <vector>
 #include <string>
@@ -91,7 +92,7 @@ string IRBuilder::addItemCalculateExp(IROp op, string&& label1, string&& label2)
         freeTmpSymbol(label2);
 
         string tmpSymbol = genTmpSymbol();
-        IRs.emplace_back(IRItem(op, label1, label2, tmpSymbol));
+        IRs.emplace_back(IRItem(op, markUniqueIdent(label1), markUniqueIdent(label2), tmpSymbol));
         return tmpSymbol;
     }
     return "";
@@ -103,7 +104,7 @@ string IRBuilder::addItemCalculateExp(IROp op, string& label1, string& label2) {
         freeTmpSymbol(label2);
 
         string tmpSymbol = genTmpSymbol();
-        IRs.emplace_back(IRItem(op, label1, label2, tmpSymbol));
+        IRs.emplace_back(IRItem(op, markUniqueIdent(label1), markUniqueIdent(label2), tmpSymbol));
         return tmpSymbol;
     }
     return "";
@@ -115,7 +116,7 @@ string IRBuilder::addItemCalculateExp(IROp op, string& label1, string&& label2) 
         freeTmpSymbol(label2);
 
         string tmpSymbol = genTmpSymbol();
-        IRs.emplace_back(IRItem(op, label1, label2, tmpSymbol));
+        IRs.emplace_back(IRItem(op, markUniqueIdent(label1), markUniqueIdent(label2), tmpSymbol));
         return tmpSymbol;
     }
     return "";
@@ -127,7 +128,7 @@ string IRBuilder::addItemCalculateExp(IROp op, string&& label1, string& label2) 
         freeTmpSymbol(label2);
 
         string tmpSymbol = genTmpSymbol();
-        IRs.emplace_back(IRItem(op, label1, label2, tmpSymbol));
+        IRs.emplace_back(IRItem(op, markUniqueIdent(label1), markUniqueIdent(label2), tmpSymbol));
         return tmpSymbol;
     }
     return "";
@@ -135,7 +136,7 @@ string IRBuilder::addItemCalculateExp(IROp op, string&& label1, string& label2) 
 
 void IRBuilder::addItemAssign(string& lvalue, string& rvalue) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::ADD, rvalue, ZERO_STR, lvalue));
+        IRs.emplace_back(IRItem(IROp::ADD, markUniqueIdent(rvalue), ZERO_STR, markUniqueIdent(lvalue)));
         freeTmpSymbol(rvalue);
     }
 }
@@ -145,7 +146,7 @@ string IRBuilder::addItemLoadArray(string &array, string &offset) {
         freeTmpSymbol(offset);
 
         string tmpSymbol = genTmpSymbol();
-        IRs.emplace_back(IRItem(IROp::LOAD_ARR, array, offset, tmpSymbol));
+        IRs.emplace_back(IRItem(IROp::LOAD_ARR, markUniqueIdent(array), offset, tmpSymbol));
         return tmpSymbol;
     }
     return "";
@@ -153,7 +154,7 @@ string IRBuilder::addItemLoadArray(string &array, string &offset) {
 
 void IRBuilder::addItemStoreArray(string &array, string &offset, string &ident) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::STORE_ARR, array, offset, ident));
+        IRs.emplace_back(IRItem(IROp::STORE_ARR, markUniqueIdent(array), offset, markUniqueIdent(ident)));
         freeTmpSymbol(offset);
         freeTmpSymbol(ident);
     }
@@ -161,7 +162,7 @@ void IRBuilder::addItemStoreArray(string &array, string &offset, string &ident) 
 
 void IRBuilder::addItemLoadRParam(string& rParam) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::RPARA, rParam));
+        IRs.emplace_back(IRItem(IROp::RPARA, markUniqueIdent(rParam)));
         freeTmpSymbol(rParam);
     }
 }
@@ -174,21 +175,21 @@ void IRBuilder::addItemCallFunc(string& funcName) {
 
 void IRBuilder::addItemFuncReturn(string& retValue) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::RET, retValue));
+        IRs.emplace_back(IRItem(IROp::RET, markUniqueIdent(retValue)));
         freeTmpSymbol(retValue);
     }
 }
 
 void IRBuilder::addItemPrintf(string& formatString) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::PRINTF, formatString));
+        IRs.emplace_back(IRItem(IROp::PRINTF, markUniqueIdent(formatString)));
         freeTmpSymbol(formatString);
     }
 }
 
 void IRBuilder::addItemPrintf(string&& formatString) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::PRINTF, formatString));
+        IRs.emplace_back(IRItem(IROp::PRINTF, markUniqueIdent(formatString)));
         freeTmpSymbol(formatString);
     }
 }
@@ -203,28 +204,30 @@ string IRBuilder::addItemScanf() {
 }
 
 void IRBuilder::addItemDef(IROp defOp, string&& indexSize, string& identName, bool isArray) {
+    // for DEF_CON | DEF_VAR
     if (inEffect) {
         string type = (isArray) ? "array" : "int" ;
-        IRs.emplace_back(IRItem(defOp, type, indexSize, identName));
+        IRs.emplace_back(IRItem(defOp, type, indexSize, markUniqueIdent(identName)));
     }
 }
 
-void IRBuilder::addItemDefInit(string& ident, string&& value) {
+void IRBuilder::addItemDefInit(string& ident, string&& index, string&& value) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::DEF_INIT, value, NULL_STR, ident));
+        IRs.emplace_back(IRItem(IROp::DEF_INIT, markUniqueIdent(value), index, markUniqueIdent(ident)));
     }
 }
 
-void IRBuilder::addItemDefFunc(string& funcType, string& ident) {
+void IRBuilder::addItemDefFunc(string& funcType, string& funcName) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::DEF_FUN, funcType, NULL_STR, ident));
+        IRs.emplace_back(IRItem(IROp::DEF_FUN, funcType, NULL_STR, funcName));
     }
 }
 
 void IRBuilder::addItemDefFParam(string& paramName, string&& dimSize, string& paramType) {
     // ident will carry dim info
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::FPARA, paramType, dimSize, paramName));
+        // only after defFParam will the ident be stored to symbol!
+        IRs.emplace_back(IRItem(IROp::FPARA, paramType, dimSize, markUniqueIdent(paramName)));
     }
 }
 

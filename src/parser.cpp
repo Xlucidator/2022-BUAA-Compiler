@@ -19,7 +19,7 @@ using namespace std;
 unsigned int no_cnt = 0;
 SymbolTable* curContext;
 
-ofstream ErrorHandler::efs("error.txt", ios::out);  // NOLINT
+// ofstream ErrorHandler::efs("error.txt", ios::out);  // NOLINT
 bool     ErrorHandler::inEffect = true;
 bool     ErrorHandler::isprint  = ERROR_PRINT;
 

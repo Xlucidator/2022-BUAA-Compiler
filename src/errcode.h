@@ -44,16 +44,16 @@ struct ReturnCheck {    // check whether function's return-stmt match type
 class ErrorHandler {
 private:
     static inline bool isNormalChar(char c) {
-        return (c == 32 || c == 33 || (40 <= c && c <= 126));
+        return (c == 32 || c == 33 || (40 <= c && c < 126));
     }
 
 public:
     static bool inEffect;
-    static ofstream efs;
+    //static ofstream efs;
     static bool isprint;
 
     static void respond(ErrCode errCode, int lno) {
-        isprint && inEffect && efs << lno << " " << char(errCode) << endl;
+        isprint && inEffect && cout << lno << " " << char(errCode) << endl;
     }
 
     static bool checkFormatString(string& str, int& cnt) {

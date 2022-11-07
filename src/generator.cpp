@@ -125,7 +125,11 @@ void Generator::genLocalVar() {
     if (peek.label1 != "array") {
         /* not array, we should store it above $fp */
         string initReg = initLocalVar(varName);
-        if (nextIR().op == IROp::DEF_INIT) {
+        nextIR();
+        while (peek.op != IROp::DEF_INIT && peek.op != IROp::DEF_END) {
+            genStmt();  // may only use calculate part
+        }
+        if (peek.op == IROp::DEF_INIT) {
             // has initialization
             string initValue = peek.label1;
             clearConflict(varName, initReg, false);
@@ -246,6 +250,7 @@ void Generator::genStmt() {
         }
 
         default:
+            cout << "get " << peek.toString() << " unrecognized" << endl;
             break;
     }
 }

@@ -21,7 +21,7 @@ void doMipsGeneration() {
 
 
 Generator::Generator(vector<IRItem>& ir): srcIR(ir), pos(1), peek(ir[0]) {
-    ofs.open("mips.txt", ios::out);
+    ofs.open("mips.asm", ios::out);
     if (ofs.fail()) {
         cerr << "failed to write!" << endl;
         return;
@@ -221,7 +221,7 @@ void Generator::genStmt() {
         case IROp::MOD: {
             string rd = useNameFromReg(peek.res, USE_TO);
             string rs = useNameFromReg(peek.label1, USE_FROM);
-            string rt = useName(peek.label2, USE_FROM);
+            string rt = useNameFromReg(peek.label2, USE_FROM);
             inst = "div " + rs + " " + rt;              // rd will get high-32bit of the res (HI)
             textSeg.emplace_back(inst);
             inst = "mfhi " + rd;
@@ -362,7 +362,7 @@ void Generator::genScanf() {
     textSeg.emplace_back("");
     /* peek.op == IROp::SCANF */
     string scanfReg = useNameFromReg(peek.label1, USE_TO);
-    textSeg.emplace_back("li $a0 5");
+    textSeg.emplace_back("li $v0 5");
     textSeg.emplace_back("syscall");
     textSeg.emplace_back("move " + scanfReg + " $v0");
 

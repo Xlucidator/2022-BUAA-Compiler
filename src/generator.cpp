@@ -21,7 +21,7 @@ void doMipsGeneration() {
 
 
 Generator::Generator(vector<IRItem>& ir): srcIR(ir), pos(1), peek(ir[0]) {
-    ofs.open("mips.asm", ios::out);
+    ofs.open("mips.txt", ios::out);
     if (ofs.fail()) {
         cerr << "failed to write!" << endl;
         return;
@@ -58,7 +58,7 @@ void Generator::generating() {
         genFuncDef();
     }
 
-    cout << "finish generation" << endl;
+    // cout << "finish generation" << endl;
 }
 
 void Generator::genConst() {
@@ -97,7 +97,7 @@ void Generator::genGlobalVar() {
         }
         string li_inst = "li " + initReg + " " + initValue;
         textSeg.emplace_back(li_inst);
-        // saveBackToMemory(initReg);
+        saveBackToMemory(initReg);
     } else {
         string inst = varName + ": .word ";
         if (preLook(1).op != IROp::DEF_INIT) {

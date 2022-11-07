@@ -12,9 +12,10 @@
 #include <map>
 #include <set>
 #include <string>
+
 #include "irbuilder.h"
-#include "regfile.h"
 #include "tools.h"
+#include "settings.h"
 
 using namespace std;
 

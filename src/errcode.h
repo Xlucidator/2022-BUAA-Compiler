@@ -50,10 +50,10 @@ private:
 public:
     static bool inEffect;
     static ofstream efs;
+    static bool isprint;
 
     static void respond(ErrCode errCode, int lno) {
-        if (inEffect)
-            efs << lno << " " << char(errCode) << endl;
+        isprint && inEffect && efs << lno << " " << char(errCode) << endl;
     }
 
     static bool checkFormatString(string& str, int& cnt) {

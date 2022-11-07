@@ -21,6 +21,7 @@ SymbolTable* curContext;
 
 ofstream ErrorHandler::efs("error.txt", ios::out);  // NOLINT
 bool     ErrorHandler::inEffect = true;
+bool     ErrorHandler::isprint  = ERROR_PRINT;
 
 
 void doSyntaxAnalysis() {

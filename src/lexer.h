@@ -7,6 +7,8 @@
 
 
 #include "catcode.h"
+#include "settings.h"
+
 #include <string>
 #include <iostream>
 #include <map>

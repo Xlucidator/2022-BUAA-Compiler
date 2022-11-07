@@ -3,6 +3,7 @@
 //
 #include "lexer.h"
 #include "catcode.h"
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -12,7 +13,7 @@
 using namespace std;
 
 vector<Word> wordList;
-bool Lexer::isprint = true;
+bool Lexer::isprint = LEXER_PRINT;
 
 void doLexicalAnalysis() {
     ifstream ifs;

@@ -16,6 +16,7 @@
 #include "symbol.h"
 #include "errcode.h"
 #include "irbuilder.h"
+#include "settings.h"
 
 
 using namespace std;
@@ -30,7 +31,7 @@ private:
     int cnt;
     Word peek;
     ofstream ofs;
-    bool isprint = true;
+    bool isprint = PARSER_PRINT;
 
     stack<int> records; // enabled snapshot in record
     bool inrecord = false;

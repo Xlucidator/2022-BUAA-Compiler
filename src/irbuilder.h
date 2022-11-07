@@ -11,7 +11,9 @@
 #include <bitset>
 #include <fstream>
 #include <iostream>
+
 #include "catcode.h"
+#include "settings.h"
 
 using namespace std;
 
@@ -87,7 +89,7 @@ private:
     string INT_STR  = "int";
 
     ofstream ofs;
-    bool isprint = true;
+    bool isprint = IRCODE_PRINT;
 
     vector<IRItem>& IRs;
 

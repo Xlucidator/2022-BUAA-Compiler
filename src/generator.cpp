@@ -288,7 +288,7 @@ void Generator::genFuncCall() {
             // t_reg[i] = "";
         }
     }
-    content = "$ra " + to_string(sp_offset) + "($sp)";
+    backUpList.emplace_back("$ra " + to_string(sp_offset) + "($sp)");
     sp_offset += 4;
 
     /* store context */

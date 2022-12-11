@@ -249,9 +249,43 @@ void Generator::genStmt() {
             nextIR();
             break;
         }
+        case IROp::LABEL: {
+            textSeg.emplace_back(peek.res + ":");
+            nextIR();
+            break;
+        }
+        case IROp::JUMP: {
+            textSeg.emplace_back("j " + peek.res);
+            nextIR();
+            break;
+        }
+        case IROp::SEQ:
+        case IROp::SNE:
+        case IROp::SLT:
+        case IROp::SLE:
+        case IROp::SGT:
+        case IROp::SGE: {
+            string rd = useNameFromReg(peek.res, USE_TO);
+            string rs = useNameFromReg(peek.label1, USE_FROM);
+            string rt = useNameFromReg(peek.label2, USE_FROM);
+            inst = IROp2String.at(peek.op) + " " + rd + " " + rs + " " + rt;
+            textSeg.emplace_back(inst);
+            nextIR();
+            break;
+        }
+        case IROp::BEQ:
+        case IROp::BNE: {
+            string rs = useNameFromReg(peek.label1, USE_FROM);
+            string rt = useName(peek.label2, USE_FROM);
+            inst = IROp2String.at(peek.op) + " " + rs + " " + rt + " " + peek.res;
+            textSeg.emplace_back(inst);
+            nextIR();
+            break;
+        }
 
         default:
-            cout << "get " << peek.toString() << " unrecognized" << endl;
+            cout << "get \"" << peek.toString() << "\" unrecognized" << endl;
+            nextIR();
             break;
     }
 }

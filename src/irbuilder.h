@@ -32,16 +32,26 @@ enum struct IROp {  // | op | label1 | label2 | res |
     CALL_FUN,       //   *     foo                      <-- (from above)
     GET_RET,        //   *     @t1                      <-- foo() => @t1
 
+    SET,            //   *     rs               rd      <-- rd = rs
     ADD,            //   *     rs       rt      rd      <-- rd = rs + rt
     MIN,            //   *     rs       rt      rd      <-- rd = rs - rt
-    MUL,            //   *     rs       rt      rd      <-- rd = rs - rt
-    DIV,            //   *     rs       rt      rd      <-- rd = rs - rt
-    MOD,            //   *     rs       rt      rd      <-- rd = rs - rt
+    MUL,            //   *     rs       rt      rd      <-- rd = rs * rt
+    DIV,            //   *     rs       rt      rd      <-- rd = rs / rt
+    MOD,            //   *     rs       rt      rd      <-- rd = rs % rt
+    AND,            //   *     rs       rt      rd      <-- rd = rs && rt
+    OR ,            //   *     rs       rt      rd      <-- rd = rs || rt
 
-    LABEL,
-    CMP,
-    BEQ,
-    BNE,
+    LABEL,          //   *                     label    <-- label:
+    BEQ,            //   *     rs       rt     label    <-- if rs == rt goto label
+    BNE,            //   *     rs       rt     label    <-- if rs != rt goto label
+    JUMP,           //   *                     label    <-- goto label
+
+    SEQ,            //   *     rs       rt      rd      <-- rd = (rs == rt) ? 1 : 0
+    SNE,            //   *     rs       rt      rd      <-- rd = (rs != rt) ? 1 : 0
+    SLT,            //   *     rs       rt      rd      <-- rd = (rs <  rt) ? 1 : 0
+    SLE,            //   *     rs       rt      rd      <-- rd = (rs <= rt) ? 1 : 0
+    SGT,            //   *     rs       rt      rd      <-- rd = (rs >  rt) ? 1 : 0
+    SGE,            //   *     rs       rt      rd      <-- rd = (rs >= rt) ? 1 : 0
 
     LOAD_ARR,       //   *     arr      3        t1     <-- t1=a[3]
     STORE_ARR,      //   *     arr      3        t1     <-- a[3]=t1
@@ -121,12 +131,20 @@ public:
             {CatCode::MULT  , IROp::MUL },
             {CatCode::DIV   , IROp::DIV },
             {CatCode::MOD   , IROp::MOD },
+            {CatCode::EQL   , IROp::SEQ },
+            {CatCode::NEQ   , IROp::SNE },
+            {CatCode::LSS   , IROp::SLT },
+            {CatCode::LEQ   , IROp::SLE },
+            {CatCode::GRE   , IROp::SGT },
+            {CatCode::GEQ   , IROp::SGE },
     };
 
     explicit IRBuilder(vector<IRItem> &irs);
 
     void printIRs();
 
+    string addItemSet(string& label1);
+    string addItemSet(string&& label1);
     string addItemCalculateExp(IROp op, string&& label1, string&& label2);
     string addItemCalculateExp(IROp op, string& label1, string& label2);
     string addItemCalculateExp(IROp op, string& label1, string&& label2);
@@ -153,6 +171,13 @@ public:
     void addItemDefFParam(string& paramName, string&& dimSize, string& paramType);
 
     void addItemDefEnd(string& ident);
+
+    string addItemNot(string& label1);
+    string addItemSetAfterCompare(IROp op, string& label1, string& label2);
+    void addItemBranchAfterCompare(IROp op, string& label1, string&& label2, string&& tarLabelName);
+    void addItemBranchAfterCompare(IROp op, string& label1, string&& label2, string& tarLabelName);
+    void addItemLabel(string& labelName);
+    void addItemJump(string& labelName);
 };
 
 extern vector<IRItem> IRList;

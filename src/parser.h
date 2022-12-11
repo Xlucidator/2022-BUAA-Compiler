@@ -73,16 +73,16 @@ public:
     // basic structure
     void parseCompUnit();
     void parseMainFunc();
-    void parseBlock(bool inLoop);                           // for common block
+    void parseBlock(bool inLoop, string endLabel);                    // for common block
     void parseBlock(bool needReturnValue, vector<Param>& funcParams); // for function block
-    ReturnCheck parseBlockItem();                           // ReturnCheck
-    ReturnCheck parseStmt(bool inLoop);             // ReturnCheck
+    ReturnCheck parseBlockItem(string endLabel);            // ReturnCheck
+    ReturnCheck parseStmt(bool inLoop, string endLabel);    // ReturnCheck
 
     // Exp
-    inline void parseLOrExp();
-    inline void parseLAndExp();
-    inline void parseEqExp();
-    inline void parseRelExp();
+    void parseLOrExp(string& symbol);
+    void parseLAndExp(string& symbol);
+    void parseEqExp(string& symbol);
+    void parseRelExp(string& symbol);
     inline Param parseAddExp(string& symbol);
     inline Param parseMulExp(string& symbol);
     Param parseUnaryExp(string& symbol);
@@ -110,7 +110,7 @@ public:
     inline Type parseFuncType();
     // symbol wrappers
     Param parseExp(string* symbol);
-    void parseCond();
+    void parseCond(string label);
     void parseConstExp(int& number);
 };
 
@@ -139,54 +139,6 @@ inline Word Parser::preLook(int offset) {
         return Word(CatCode::EOL);
 }
 
-inline void Parser::parseLOrExp() { // LAndExp { '||' LAndExp }
-    parseLAndExp();
-    genOutput("<LOrExp>");
-
-    while (peek.type == CatCode::OR) {
-        nextWord(); parseLAndExp();
-        genOutput("<LOrExp>");
-    }
-}
-
-inline void Parser::parseLAndExp() { // EqExp { '&&' EqExp }
-    parseEqExp();
-    genOutput("<LAndExp>");
-
-    while (peek.type == CatCode::AND) {
-        nextWord(); parseEqExp();
-        genOutput("<LAndExp>");
-    }
-}
-
-inline void Parser::parseEqExp() { // RelExp { ('==' | '!=') RelExp }
-    parseRelExp();
-    genOutput("<EqExp>");
-
-    while (peek.type == CatCode::EQL || peek.type == CatCode::NEQ) {
-        nextWord(); parseRelExp();
-        genOutput("<EqExp>");
-    }
-}
-
-inline void Parser::parseRelExp() { // AddExp { ('<' | '>' | '<=' | '>=') AddExp }
-    string GET_symbolBase;
-    string GET_symbolOther;
-
-    parseAddExp(GET_symbolBase);
-    genOutput("<RelExp>");
-
-    while (
-            peek.type == CatCode::LSS ||
-            peek.type == CatCode::GRE ||
-            peek.type == CatCode::LEQ ||
-            peek.type == CatCode::GEQ
-            ) {
-        nextWord();
-        parseAddExp(GET_symbolOther);
-        genOutput("<RelExp>");
-    }
-}
 
 inline Param Parser::parseAddExp(string& OUT_symbol) {
     // MulExp { ('+' | '−') MulExp }

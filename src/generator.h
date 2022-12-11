@@ -71,6 +71,23 @@ private:
     }
 
 public:
+    const map<IROp, string> IROp2String = {
+            {IROp::ADD, "add"},
+            {IROp::MIN, "sub"},
+            {IROp::MUL, "mul"},
+            {IROp::DIV, "div"},
+
+            {IROp::SEQ, "seq"},
+            {IROp::SNE, "sne"},
+            {IROp::SLT, "slt"},
+            {IROp::SLE, "sle"},
+            {IROp::SGT, "sgt"},
+            {IROp::SGE, "sge"},
+
+            {IROp::BEQ, "beq"},
+            {IROp::BNE, "bne"},
+    };
+
     explicit Generator(vector<IRItem>& ir);
     inline IRItem nextIR();
     inline IRItem prevIR();

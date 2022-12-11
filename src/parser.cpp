@@ -124,7 +124,7 @@ void Parser::parseBlock(bool needReturnValue, vector<Param>& funcParams) {  // i
     ReturnCheck returnCheck;
     nextWord();
     while (peek.type != CatCode::R_BRACE) {
-        returnCheck = parseBlockItem();
+        returnCheck = parseBlockItem("");
         if (!needReturnValue && returnCheck.hasReturnValue) {
             ErrorHandler::respond(ErrCode::VOID_FUNC_RETURN_INT, returnCheck.lno);          // Error: f
         }
@@ -140,7 +140,7 @@ void Parser::parseBlock(bool needReturnValue, vector<Param>& funcParams) {  // i
     delete funcScope;
 }
 
-void Parser::parseBlock(bool inLoop) {  // generate normal block and so on
+void Parser::parseBlock(bool inLoop, string IN_endLabel) {  // generate normal block and so on
     if (peek.type != CatCode::L_BRACE)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] block: not a {";
 
@@ -151,7 +151,7 @@ void Parser::parseBlock(bool inLoop) {  // generate normal block and so on
     ReturnCheck returnCheck;
     nextWord();
     while (peek.type != CatCode::R_BRACE) {
-        returnCheck = parseBlockItem();
+        returnCheck = parseBlockItem(IN_endLabel);
         if (!curContext->isNeedReturn() && returnCheck.hasReturnValue) {
             ErrorHandler::respond(ErrCode::VOID_FUNC_RETURN_INT, returnCheck.lno);
         }
@@ -164,7 +164,7 @@ void Parser::parseBlock(bool inLoop) {  // generate normal block and so on
     delete blockScope;
 }
 
-ReturnCheck Parser::parseBlockItem() {
+ReturnCheck Parser::parseBlockItem(string IN_endLabel) {
     switch(peek.type) {
         // Decl
         case CatCode::CONST_TK :
@@ -176,52 +176,81 @@ ReturnCheck Parser::parseBlockItem() {
 
         // Stmt
         default:
-            return parseStmt(false);
+            return parseStmt(false, std::move(IN_endLabel));
     }
     return ReturnCheck{};
 }
 
-ReturnCheck Parser::parseStmt(bool inLoop) {
+ReturnCheck Parser::parseStmt(bool inLoop, string IN_endLabel) {
+    static int label_no = 0;
     ReturnCheck returnCheck;
     switch (peek.type) {
         // 'if' '(' Cond ')' Stmt [ 'else' Stmt ]
-        case CatCode::IF_TK :
+        case CatCode::IF_TK : {
+            string label_if_begin = "$if_begin_" + to_string(peek.lno) + "_" + to_string(label_no);
+            string label_if_else = "$if_else_" + to_string(peek.lno) + "_" + to_string(label_no);
+            string label_if_end = "$if_end_" + to_string(peek.lno) + "_" + to_string(label_no);
+            label_no += 1;
+
+            irBuilder.addItemLabel(label_if_begin);
             if (nextWord().type != CatCode::L_PARENT)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] if: lack (";
-            nextWord(); parseCond();
+            nextWord();
+            parseCond(label_if_else);
             if (peek.type != CatCode::R_PARENT) {
                 /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] if: lack )"; */
                 ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);             // Error: j
             } else {
                 nextWord();
             }
-            parseStmt(false);
+
+            parseStmt(false, IN_endLabel);
+
             if (peek.type == CatCode::ELSE_TK) {
-                nextWord(); parseStmt(false);
+                irBuilder.addItemJump(label_if_end);
+                irBuilder.addItemLabel(label_if_else);
+                nextWord();
+                parseStmt(false, IN_endLabel);
+            } else {
+                irBuilder.addItemLabel(label_if_else);
             }
+
+            irBuilder.addItemLabel(label_if_end);
             break;
+        }
 
         // 'while' '(' Cond ')' Stmt
-        case CatCode::WHILE_TK :
+        case CatCode::WHILE_TK : {
+            string label_while_begin = "$while_begin_" + to_string(peek.lno) + "_" + to_string(label_no);
+            string label_while_end = "$while_end_" + to_string(peek.lno) + "_" + to_string(label_no);
+            label_no += 1;
+
+            irBuilder.addItemLabel(label_while_begin);
             if (nextWord().type != CatCode::L_PARENT)
                 throw "[" + to_string(peek.lno) + " " + peek.cont + "] while: lack (";
             nextWord();
-            parseCond();
+            parseCond(label_while_end);
             if (peek.type != CatCode::R_PARENT) {
                 /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] while: lack )"; */
                 ErrorHandler::respond(ErrCode::LACK_R_PARENT, preLook(-1).lno);             // Error: j
             } else {
                 nextWord();
             }
-            parseStmt(true);
+
+            parseStmt(true, label_while_end);
+
+            irBuilder.addItemJump(label_while_begin);
+            irBuilder.addItemLabel(label_while_end);
             break;
+        }
 
         // 'break' ';' | 'continue' ';'
         case CatCode::BREAK_TK :
-        case CatCode::CONTINUE_TK :
+        case CatCode::CONTINUE_TK : {
             if (!curContext->isInLoop()) {
                 ErrorHandler::respond(ErrCode::BREAK_CONTINUE_OUTLOOP, peek.lno);           // Error: m
             }
+            irBuilder.addItemJump(peek.type == CatCode::BREAK_TK ? IN_endLabel : TO_LABEL_BEGIN(IN_endLabel));
             if (nextWord().type != CatCode::SEMICN) {
                 /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] break/continue: lack ;"; */
                 ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);            // Error: i
@@ -229,6 +258,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
                 nextWord();
             }
             break;
+        }
 
         // 'return' [Exp] ';'
         case CatCode::RETURN_TK: {
@@ -316,7 +346,7 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
 
         // Block
         case CatCode::L_BRACE:
-            parseBlock(inLoop);
+            parseBlock(inLoop, IN_endLabel);
             break;
 
         // ';'
@@ -400,9 +430,169 @@ ReturnCheck Parser::parseStmt(bool inLoop) {
     return returnCheck;
 }
 
-void Parser::parseCond() {
-    parseLOrExp();
+void Parser::parseCond(string IN_label) {
+    string GET_symbolCond;
+
+    parseLOrExp(GET_symbolCond);
+    irBuilder.addItemBranchAfterCompare(IROp::BEQ, GET_symbolCond, "0", IN_label);
     genOutput("<Cond>");
+}
+
+void Parser::parseLOrExp(string& OUT_symbol) { // LAndExp { '||' LAndExp }
+    /* case: "1", "0", "@t1", "a" */
+    string GET_symbolCond;
+    string setFlag;
+
+    static int label_no = 0;
+    string label_or_true = "$or_true" + to_string(label_no);
+    string label_or_end = "$or_end" + to_string(label_no);
+    label_no += 1;
+
+    parseLAndExp(GET_symbolCond);
+    genOutput("<LOrExp>");
+    if (peek.type != CatCode::OR) {     // only one LAndExp
+        OUT_symbol = GET_symbolCond;
+        return;
+    } else {                            // more than one LAndExp
+        setFlag = irBuilder.addItemSet("0");
+        if (GET_symbolCond != "0") {
+            irBuilder.addItemBranchAfterCompare(IROp::BNE, GET_symbolCond,
+                                                "0", label_or_true);
+        }
+    }
+
+    while (peek.type == CatCode::OR) {
+        nextWord();
+        parseLAndExp(GET_symbolCond);
+        if (peek.type != CatCode::OR) { // assure it's the last LAndExp
+            setFlag = irBuilder.addItemCalculateExp(IROp::OR, setFlag, GET_symbolCond);
+        } else {
+            if (GET_symbolCond != "0") {
+                irBuilder.addItemBranchAfterCompare(IROp::BNE, GET_symbolCond,
+                                                    "0", label_or_true);
+            }
+        }
+        genOutput("<LOrExp>");
+    }
+
+    // jump or_end
+    irBuilder.addItemJump(label_or_end);
+    // or_true: or @t0 @t0 1
+    irBuilder.addItemLabel(label_or_true);
+    setFlag = irBuilder.addItemCalculateExp(IROp::OR, setFlag, "1");
+    // and_end:
+    irBuilder.addItemLabel(label_or_end);
+
+    OUT_symbol = setFlag;
+}
+
+void Parser::parseLAndExp(string& OUT_symbol) { // EqExp { '&&' EqExp }
+    /* case: "1", "0", "@t1", "a" */
+    string GET_symbolCond;
+    string setFlag;
+
+    static int label_no = 0;
+    string label_and_false = "$and_false" + to_string(label_no);
+    string label_and_end = "$and_end" + to_string(label_no);
+    label_no += 1;
+
+    parseEqExp(GET_symbolCond);
+    genOutput("<LAndExp>");
+    if (peek.type != CatCode::AND) {    // only one EqExp
+        OUT_symbol = GET_symbolCond;
+        return;
+    } else {                            // more than one EqExp
+        setFlag = irBuilder.addItemSet("1");
+        if (GET_symbolCond != "1") {    // 1 is no need to generate
+            irBuilder.addItemBranchAfterCompare(IROp::BEQ, GET_symbolCond,
+                                                "0", label_and_false);
+        }
+    }
+
+    while (peek.type == CatCode::AND) {
+        nextWord();
+        parseEqExp(GET_symbolCond);
+        if (peek.type != CatCode::AND) { // assure it's the last EqExp
+            setFlag = irBuilder.addItemCalculateExp(IROp::AND, setFlag, GET_symbolCond);
+        } else {
+            if (GET_symbolCond != "1") {
+                irBuilder.addItemBranchAfterCompare(IROp::BEQ, GET_symbolCond,
+                                                    "0", label_and_false);
+            }
+        }
+        genOutput("<LAndExp>");
+    }
+
+    // jump and_end
+    irBuilder.addItemJump(label_and_end);
+    // and_false: and @t0 @t0 0
+    irBuilder.addItemLabel(label_and_false);
+    setFlag = irBuilder.addItemCalculateExp(IROp::AND, setFlag, "0");
+    // and_end:
+    irBuilder.addItemLabel(label_and_end);
+
+    OUT_symbol = setFlag;
+}
+
+void Parser::parseEqExp(string& OUT_symbol) { // RelExp { ('==' | '!=') RelExp }
+    string GET_symbolBase;
+    string GET_symbolOther;
+    IROp GET_expOp;
+
+    parseRelExp(GET_symbolBase);
+    genOutput("<EqExp>");
+
+    while (peek.type == CatCode::EQL || peek.type == CatCode::NEQ) {
+        GET_expOp = irBuilder.catCode2IROp.at(peek.type);
+        nextWord();
+        parseRelExp(GET_symbolOther);
+        if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
+            if (GET_expOp == IROp::SEQ) {
+                GET_symbolBase = (stoi(GET_symbolBase) == stoi(GET_symbolOther)) ? "1" : "0";
+            } else {
+                GET_symbolBase = (stoi(GET_symbolBase) != stoi(GET_symbolOther)) ? "1" : "0";
+            }
+        } else {
+            GET_symbolBase = irBuilder.addItemSetAfterCompare(GET_expOp, GET_symbolBase, GET_symbolOther);
+        }
+        genOutput("<EqExp>");
+    }
+    OUT_symbol = GET_symbolBase;
+}
+
+void Parser::parseRelExp(string& OUT_symbol) { // AddExp { ('<' | '>' | '<=' | '>=') AddExp }
+    string GET_symbolBase;
+    string GET_symbolOther;
+    IROp GET_expOp;
+
+    parseAddExp(GET_symbolBase);
+    genOutput("<RelExp>");
+
+    while (
+            peek.type == CatCode::LSS ||
+            peek.type == CatCode::GRE ||
+            peek.type == CatCode::LEQ ||
+            peek.type == CatCode::GEQ
+            ) {
+        GET_expOp = irBuilder.catCode2IROp.at(peek.type);
+        nextWord();
+        parseAddExp(GET_symbolOther);
+        if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
+            if (GET_expOp == IROp::SLT) {
+                GET_symbolBase = (stoi(GET_symbolBase) < stoi(GET_symbolOther)) ? "1" : "0";
+            } else if (GET_expOp == IROp::SLE) {
+                GET_symbolBase = (stoi(GET_symbolBase) <= stoi(GET_symbolOther)) ? "1" : "0";
+            } else if (GET_expOp == IROp::SGT) {
+                GET_symbolBase = (stoi(GET_symbolBase) > stoi(GET_symbolOther)) ? "1" : "0";
+            } else {
+                GET_symbolBase = (stoi(GET_symbolBase) >= stoi(GET_symbolOther)) ? "1" : "0";
+            }
+        } else {
+            GET_symbolBase = irBuilder.addItemSetAfterCompare(GET_expOp, GET_symbolBase, GET_symbolOther);
+        }
+        genOutput("<RelExp>");
+    }
+    OUT_symbol = GET_symbolBase;
 }
 
 Param Parser::parseExp(string* OUT_symbol) {
@@ -503,7 +693,7 @@ Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [Fun
             string GET_unaryOp;
             string GET_symbol;
 
-            parseUnaryOp(GET_unaryOp);  // TODO: CatCode::NOT hasn't been dealt
+            parseUnaryOp(GET_unaryOp);
             param = parseUnaryExp(GET_symbol);
 
             if (GET_unaryOp == "-") {
@@ -511,6 +701,15 @@ Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [Fun
                     OUT_symbol = GET_symbol.substr(1);
                 else
                     OUT_symbol = "-" + GET_symbol;
+            } else if (GET_unaryOp == "!") {
+                if (isnumber(GET_symbol)) { // !3 -> 1
+                    OUT_symbol = stoi(OUT_symbol) == 0 ? "1" : "0";
+                } else {    // !a , !@t2 , -!-!-a
+                    if (hasSign(GET_symbol)) {  // case: ! -a
+                        GET_symbol = GET_symbol.substr(1);  // '-' is of no effect
+                    }
+                    OUT_symbol = irBuilder.addItemNot(GET_symbol);
+                }
             } else {
                 OUT_symbol = GET_symbol;
             }

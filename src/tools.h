@@ -18,6 +18,8 @@
  * */
 std::vector<std::string> split(const std::string& str, const std::string& delimiters = " ");
 
+int calculate(std::string& num1, IROp op, std::string& num2);
+
 inline bool hasSign(std::string& str) {
     return str[0] == '-';
 }
@@ -76,6 +78,6 @@ inline std::string markUniqueIdent(std::string& str) {
     return str + "#" + to_string(identTableNo);
 }
 
-int calculate(std::string& num1, IROp op, std::string& num2);
+#define TO_LABEL_BEGIN(endStr) (endStr.replace(endStr.find("end"), 3, "begin"))
 
 #endif //COMPILER_TOOLS_H

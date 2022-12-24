@@ -75,8 +75,8 @@ void Parser::parseCompUnit() {
 
 void Parser::parseMainFunc() {
     vector<Param> params;
-    string MAIN_STR = "main";
-    string INT_STR = "int";
+
+    inMain = true;
 
     irBuilder.addItemDefFunc(INT_STR, MAIN_STR);
 
@@ -263,12 +263,13 @@ ReturnCheck Parser::parseStmt(bool inLoop, string IN_endLabel) {
         // 'return' [Exp] ';'
         case CatCode::RETURN_TK: {
             string GET_symbol;
+            bool hasExp = false;
 
             returnCheck.lno = peek.lno;
             returnCheck.isReTurnStmt = true;
             if (nextWord().type != CatCode::SEMICN) {
                 /* detect whether there is an Exp after return, or just lack ; */
-                bool hasExp = true;
+                hasExp = true;
                 snapshot();
                 try {
                     parseExp(nullptr);
@@ -280,13 +281,15 @@ ReturnCheck Parser::parseStmt(bool inLoop, string IN_endLabel) {
                 if (hasExp) {
                     returnCheck.hasReturnValue = true;
                     parseExp(&GET_symbol);
-                    irBuilder.addItemFuncReturn(GET_symbol);
+                    irBuilder.addItemFuncReturn(inMain ? RET_MAIN : GET_symbol);
                 }
             }
             if (peek.type != CatCode::SEMICN) {
                 /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] return: lack ;"; */
                 ErrorHandler::respond(ErrCode::LACK_SEMICOLON, preLook(-1).lno);            // Error: i
             } else {
+                if (!hasExp)    // if there's no Exp, we should generate 'return' here
+                    irBuilder.addItemFuncReturn(NULL_STR);
                 nextWord();
             }
             break;
@@ -618,10 +621,10 @@ void Parser::parseConstExp(int& OUT_number) {
     if (!isnumber(GET_symbol)) {
         OUT_number = 0;
         throw "[" + to_string(preLook(-1).lno) + "] ConstExp: must be calculable";
-    } else if (hasSign(GET_symbol)) {
+    } /* else if (hasSign(GET_symbol)) {
         OUT_number = 0;
         throw "[" + to_string(preLook(-1).lno) + "] ConstExp: can never be negative";
-    }
+    } */
     OUT_number = stoi(GET_symbol);
 }
 
@@ -629,6 +632,8 @@ IdentItem* Parser::parseLVal(vector<int>* OUT_offsets, string* OUT_symbolLVal, b
     // Ident {'[' Exp ']'}
     string GET_symbolLVal;
     vector<int> GET_symbolDims;
+    bool GET_isConstSymbol = false;
+    vector<int> GET_constValues;
 
     if (peek.type != CatCode::IDENFR)
         throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: lack Ident";
@@ -638,13 +643,18 @@ IdentItem* Parser::parseLVal(vector<int>* OUT_offsets, string* OUT_symbolLVal, b
     } else {
         GET_symbolLVal = identItem->name;
         GET_symbolDims = identItem->dim;
+        GET_isConstSymbol = !identItem->modifiable;
+        GET_constValues = identItem->values;
     }
 
     string index = "0";
+    /* array index of one dimension: arr[3][5] -> index = 15;
+     *      may not be number
+     * */
     string GET_symbol;
     string GET_dimBase;
     int dim_cnt = 0;
-    while (nextWord().type == CatCode::L_BRACK) {
+    while (nextWord().type == CatCode::L_BRACK) {   // array: has '['
         // always locate the array element
         nextWord();
         parseExp(&GET_symbol);
@@ -661,6 +671,7 @@ IdentItem* Parser::parseLVal(vector<int>* OUT_offsets, string* OUT_symbolLVal, b
         }
         if (OUT_offsets != nullptr)  // 0 is placeholder. in fact value is of no use
             OUT_offsets->push_back(isnumber(GET_symbol) ? stoi(GET_symbol) : 0);
+
         if (peek.type != CatCode::R_BRACK) {
             /* throw "[" + to_string(peek.lno) + " " + peek.cont + "] LVal: array lack ]"; */
             ErrorHandler::respond(ErrCode::LACK_R_BRACK, preLook(-1).lno);                  // Error: k
@@ -670,12 +681,21 @@ IdentItem* Parser::parseLVal(vector<int>* OUT_offsets, string* OUT_symbolLVal, b
     }
 
     if (OUT_symbolLVal != nullptr) {
-        if (!GET_symbolDims.empty()) {
-            if (IN_wrapArray)
-                (*OUT_symbolLVal) = irBuilder.addItemLoadArray(GET_symbolLVal, index);
-            else
+        if (GET_isConstSymbol && isnumber(index)) {
+            // const && index is number
+            (*OUT_symbolLVal) = to_string(GET_constValues[stoi(index)]);
+        } else if (!GET_symbolDims.empty()) {
+            // not const: LVal is an array
+            if (IN_wrapArray) {
+                // we should wrap LVal to a tmp variable : @txx
+                bool isAddr = (GET_symbolDims.size() != dim_cnt);
+                (*OUT_symbolLVal) = irBuilder.addItemLoadArray(GET_symbolLVal, index, isAddr);
+            } else {
+                // we should expose LVal as array : 'arr[3]'
                 (*OUT_symbolLVal) = GET_symbolLVal + "[" + index + "]";
+            }
         } else {
+            // LVal is just a single variable
             (*OUT_symbolLVal) = GET_symbolLVal;
         }
     }
@@ -703,7 +723,7 @@ Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [Fun
                     OUT_symbol = "-" + GET_symbol;
             } else if (GET_unaryOp == "!") {
                 if (isnumber(GET_symbol)) { // !3 -> 1
-                    OUT_symbol = stoi(OUT_symbol) == 0 ? "1" : "0";
+                    OUT_symbol = stoi(GET_symbol) == 0 ? "1" : "0";
                 } else {    // !a , !@t2 , -!-!-a
                     if (hasSign(GET_symbol)) {  // case: ! -a
                         GET_symbol = GET_symbol.substr(1);  // '-' is of no effect
@@ -890,7 +910,7 @@ void Parser::parseConstDef() { // Ident { '[' ConstExp ']' } '=' ConstInitVal
         int GET_number;
         nextWord();
 
-        parseConstExp(GET_number);
+        parseConstExp(GET_number);  // must be number <- refer to syntax
         PUT_dims.push_back(GET_number);
         if (identItem != nullptr)
             identItem->dim.push_back(GET_number);  // update dim
@@ -934,6 +954,7 @@ void Parser::parseConstInitVal(string IN_ident, vector<int> IN_dims, int IN_inde
     } else {
         int GET_number;
         parseConstExp(GET_number);
+        curContext->getIdent(IN_ident)->values.emplace_back(GET_number); // store const value
         irBuilder.addItemDefInit(IN_ident, to_string(IN_index), to_string(GET_number));
     }
     genOutput("<ConstInitVal>");

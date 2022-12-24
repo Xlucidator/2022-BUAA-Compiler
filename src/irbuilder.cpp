@@ -57,6 +57,7 @@ string IROpToString(IROp op) {
         case IROp::SGE      : return "SGE"      ;
 
         case IROp::LOAD_ARR : return "LOAD_ARR" ;
+        case IROp::LOAD_ADDR: return "LOAD_ADDR";
         case IROp::STORE_ARR: return "STORE_ARR";
 
         case IROp::PRINTF   : return "PRINTF"   ;
@@ -185,12 +186,13 @@ void IRBuilder::addItemAssign(string& lvalue, string& rvalue) {
     }
 }
 
-string IRBuilder::addItemLoadArray(string &array, string &offset) {
+string IRBuilder::addItemLoadArray(string &array, string &offset, bool loadAddr) {
     if (inEffect) {
         freeTmpSymbol(offset);
 
         string tmpSymbol = genTmpSymbol();
-        IRs.emplace_back(IRItem(IROp::LOAD_ARR, markUniqueIdent(array), offset, tmpSymbol));
+        IROp op = loadAddr ? IROp::LOAD_ADDR : IROp::LOAD_ARR;
+        IRs.emplace_back(IRItem(op, markUniqueIdent(array), offset, tmpSymbol));
         return tmpSymbol;
     }
     return "";
@@ -219,8 +221,14 @@ void IRBuilder::addItemCallFunc(string& funcName) {
 
 void IRBuilder::addItemFuncReturn(string& retValue) {
     if (inEffect) {
-        IRs.emplace_back(IRItem(IROp::RET, markUniqueIdent(retValue)));
-        freeTmpSymbol(retValue);
+        if (retValue.empty() || retValue == "#main#") {
+            // main return or no return value
+            IRs.emplace_back(IRItem(IROp::RET, retValue));
+        } else {
+            // has return value
+            IRs.emplace_back(IRItem(IROp::RET, markUniqueIdent(retValue)));
+            freeTmpSymbol(retValue);
+        }
     }
 }
 

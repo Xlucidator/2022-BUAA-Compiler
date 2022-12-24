@@ -58,6 +58,7 @@ void Generator::generating() {
         genFuncDef();
     }
 
+    textSeg.emplace_back("$$main$_$end$$:");
     // cout << "finish generation" << endl;
 }
 
@@ -71,12 +72,44 @@ void Generator::genConst() {
         addConstValue(constName, constValue);
         nextIR();
     } else {
-        string inst = constName + ": .word ";
+        string inst = constName + ": .word ";   // const should all be saved in constRecords/records
         while (nextIR().op != IROp::DEF_END) {
             inst += peek.label1 + " ";
         }
         addWordLabel(constName);
         dataSeg.emplace_back(inst);
+    }
+    // cur op: DEF_END
+    nextIR(); // move next
+}
+
+void Generator::genLocalConst() {
+    /* peek.op == IROp::DEF_CON */
+    string constName = peek.res;
+    if (peek.label1 != "array") {   // not an array (a[0]?, a[1])
+        if (nextIR().op != IROp::DEF_INIT)
+            cerr << constName << " should have DEF_INIT" << endl;
+        string constValue = peek.label1;
+        addConstValue(constName, constValue);
+        nextIR();
+    } else {
+
+        /* the same as LocalArray */
+        int arrayLen = stoi(peek.label2);
+        int initAddrOff = initLocalArray(constName, arrayLen); // need addr to store value on memory
+        nextIR();
+        // InitVal will be prepared before the IR - DEF_INIT
+        while (peek.op != IROp::DEF_END) {
+            if (peek.op != IROp::DEF_INIT) {    // make genStmt not reenter genLocalVar
+                genStmt();
+            } else {
+                string initValueReg = useNameFromReg(peek.label1, USE_FROM);
+                string inst = "sw " + initValueReg + " " + to_string(initAddrOff) + "($fp)";
+                textSeg.emplace_back(inst);
+                initAddrOff += 4;
+                nextIR();
+            }
+        }
     }
     // cur op: DEF_END
     nextIR(); // move next
@@ -90,13 +123,23 @@ void Generator::genGlobalVar() {
         string initReg = initGlobalVar(varName);
         clearConflict(varName, initReg, false);
         string initValue = "0"; // default initialization: 0
-        if (nextIR().op == IROp::DEF_INIT) {
+        nextIR();
+        while (peek.op != IROp::DEF_INIT && peek.op != IROp::DEF_END) {
+            genStmt();  // may only use calculate part
+        }
+        if (peek.op == IROp::DEF_INIT) {
             // has initialization
             initValue = peek.label1;
             nextIR();
         }
-        string li_inst = "li " + initReg + " " + initValue;
-        textSeg.emplace_back(li_inst);
+        // begin to init the global variable
+        string inst;
+        if (isnumber(initValue)) {
+            inst = "li " + initReg + " " + initValue;
+        } else {
+            inst = "move " + initReg + " " + useNameFromReg(initValue, USE_FROM);
+        }
+        textSeg.emplace_back(inst);
         saveBackToMemory(initReg);
     } else {
         string inst = varName + ": .word ";
@@ -106,6 +149,7 @@ void Generator::genGlobalVar() {
             for (int i = 0; i < indexSize; ++i) {
                 inst += "0 ";
             }
+            nextIR();
         } else {
             // has full initialization
             while (nextIR().op != IROp::DEF_END) {
@@ -126,21 +170,40 @@ void Generator::genLocalVar() {
         /* not array, we should store it above $fp */
         string initReg = initLocalVar(varName);
         nextIR();
+        // InitVal will be prepared before the single IROp::DEF_INIT
         while (peek.op != IROp::DEF_INIT && peek.op != IROp::DEF_END) {
             genStmt();  // may only use calculate part
         }
         if (peek.op == IROp::DEF_INIT) {
             // has initialization
-            string initValue = peek.label1;
+            string initValue = useName(peek.label1, USE_FROM);  // may be number/const/
+            string inst;
             clearConflict(varName, initReg, false);
-            string li_inst = "li " + initReg + " " + initValue;
-            textSeg.emplace_back(li_inst);
+            if (isnumber(initValue)) {
+                inst = "li " + initReg + " " + initValue;
+            } else {
+                inst = "add " + initReg + " $0 " + initValue;
+            }
+            textSeg.emplace_back(inst);
             nextIR();
         }
     } else {
         /* array, but we alloc and store it in $fp */
-        // TODO: haven't equipped
-        cout << "local var array is not equipped" << endl;
+        int arrayLen = stoi(peek.label2);
+        int initAddrOff = initLocalArray(varName, arrayLen); // need addr to store value on memory
+        nextIR();
+        // InitVal will be prepared before the IR - DEF_INIT
+        while (peek.op != IROp::DEF_END) {
+            if (peek.op != IROp::DEF_INIT) {    // make genStmt not reenter genLocalVar
+                genStmt();
+            } else {
+                string initValueReg = useNameFromReg(peek.label1, USE_FROM);
+                string inst = "sw " + initValueReg + " " + to_string(initAddrOff) + "($fp)";
+                textSeg.emplace_back(inst);
+                initAddrOff += 4;
+                nextIR();
+            }
+        }
     }
     // cur op: DEF_END
     nextIR();
@@ -156,8 +219,13 @@ void Generator::genFuncDef() {
     int FPara_cnt = 0;
     while (nextIR().op == IROp::FPARA) {
         string paraName = peek.res;
-        useNameFromReg(paraName, true); // TODO: not so clear, change to init... function
-
+        int paraDim = stoi(peek.label2);
+        if (paraDim == 0) {
+            useNameFromReg(paraName, true); // TODO: not so clear, change to init... function
+        } else {
+            // it's a pointer (store addr)
+            initLocalPointer(paraName);
+        }
         FPara_cnt += 1;
     }
 
@@ -165,8 +233,10 @@ void Generator::genFuncDef() {
         genStmt();
     }
 
-    if (funcName != "main")
+    if (funcName != "main") {
+        storeAllGlobalVarBack();
         textSeg.emplace_back("jr $ra");
+    }
     // cur op : DEF_END
     nextIR();
 }
@@ -175,11 +245,20 @@ void Generator::genStmt() {
     string inst;
     switch(peek.op) {
         case IROp::DEF_CON: {
-            genConst();
+            genLocalConst();
             break;
         }
         case IROp::DEF_VAR: {
             genLocalVar();
+            break;
+        }
+
+        case IROp::SET: {
+            string rd = useNameFromReg(peek.res, USE_TO);
+            string rt = useName(peek.label1, USE_FROM);
+            inst = "add " + rd + " $0 " + rt;
+            textSeg.emplace_back(inst);
+            nextIR();
             break;
         }
         case IROp::ADD: {
@@ -229,6 +308,25 @@ void Generator::genStmt() {
             nextIR();
             break;
         }
+        case IROp::AND: {
+            string rd = useNameFromReg(peek.res, USE_TO);
+            string rs = useNameFromReg(peek.label1, USE_FROM);
+            string rt = useName(peek.label2, USE_FROM);
+            inst = "and " + rd + " " + rs + " " + rt;
+            textSeg.emplace_back(inst);
+            nextIR();
+            break;
+        }
+        case IROp::OR: {
+            string rd = useNameFromReg(peek.res, USE_TO);
+            string rs = useNameFromReg(peek.label1, USE_FROM);
+            string rt = useName(peek.label2, USE_FROM);
+            inst = "or " + rd + " " + rs + " " + rt;
+            textSeg.emplace_back(inst);
+            nextIR();
+            break;
+        }
+
         case IROp::PRINTF: {
             genPrintf();
             break;
@@ -243,9 +341,16 @@ void Generator::genStmt() {
             break;
         }
         case IROp::RET: {
-            string from = useNameFromReg(peek.label1, USE_FROM);
-            inst = "move $v0 " + from;
-            textSeg.emplace_back(inst);
+            if (peek.label1 != "#main#") {
+                storeAllGlobalVarBack(); // also need to store back before return
+                if (!peek.label1.empty()) {
+                    // has return value, move to $v0 for argument pass
+                    string from = useNameFromReg(peek.label1, USE_FROM);
+                    inst = "move $v0 " + from;
+                    textSeg.emplace_back(inst);
+                }
+                textSeg.emplace_back("jr $ra");
+            }
             nextIR();
             break;
         }
@@ -282,6 +387,30 @@ void Generator::genStmt() {
             nextIR();
             break;
         }
+        case IROp::LOAD_ARR: {
+            string rt = useNameFromReg(peek.res, USE_TO);
+            string baseOff = useArrayFromBaseOff(peek.label1, peek.label2);
+            inst = "lw " + rt + " " + baseOff;
+            textSeg.emplace_back(inst);
+            nextIR();
+            break;
+        }
+        case IROp::STORE_ARR: {
+            string rt = useNameFromReg(peek.res, USE_FROM);
+            string baseOff = useArrayFromBaseOff(peek.label1, peek.label2);
+            inst = "sw " + rt + " " + baseOff;
+            textSeg.emplace_back(inst);
+            nextIR();
+            break;
+        }
+        case IROp::LOAD_ADDR: { // const array will never reach here
+            string rt = useNameFromReg(peek.res, USE_FROM);
+            string addr = useArrayFromAddr(peek.label1, peek.label2);
+            inst = "move " + rt + " " + addr;   // TODO: a lot to optimize
+            textSeg.emplace_back(inst);
+            nextIR();
+            break;
+        }
 
         default:
             cout << "get \"" << peek.toString() << "\" unrecognized" << endl;
@@ -310,6 +439,9 @@ void Generator::genFuncCall() {
     /* get something to store */
     vector<string> backUpList;  // list which is to sw to the addr of $sp
     string content;
+    // store back global variable back to $gp memory first
+    storeAllGlobalVarBack();
+    // store other regs to $sp
     for (int i = 0; i < SREG_SIZE; ++i) {
         if (!s_reg[i].empty()) {
             // cout << s_reg[i] << endl;
@@ -319,7 +451,7 @@ void Generator::genFuncCall() {
             // s_reg[i] = "";
         }
     }
-    for (int i = 0; i < TREG_SIZE-1; ++i) {
+    for (int i = 0; i < TREG_SIZE-2; ++i) {
         if (!t_reg[i].empty()) {
             // cout << t_reg[i] << endl;
             content = "$t" + to_string(i) + " " + to_string(sp_offset) + "($sp)";

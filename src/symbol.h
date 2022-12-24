@@ -56,6 +56,7 @@ struct FuncItem : public SymbolItem {
 struct IdentItem : public SymbolItem {
     vector<int> dim;
     bool modifiable;
+    vector<int> values;
 
     IdentItem(string& name, bool m)
                 : SymbolItem(name, Kind::VAR, Type::INT), modifiable(m){}

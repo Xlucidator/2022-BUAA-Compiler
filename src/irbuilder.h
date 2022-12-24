@@ -19,8 +19,8 @@ using namespace std;
 
 enum struct IROp {  // | op | label1 | label2 | res |
     DEF_CON,        //   *     int       1       a      <-- const int a = 3;
-    DEF_VAR,        //   *     int       3       b      <-- int b[3] = {1,2,3};
-    DEF_INIT,       //   *      3       [2]      b      <-- (from above) b[2] = 3;
+    DEF_VAR,        //   *     int       3       b      <-- int b[3] = {11,12,13};
+    DEF_INIT,       //   *     13       [2]      b      <-- (from above) b[2] = 13;
 
     DEF_END,        //   *                     ident    <-- mark end of def
 
@@ -54,6 +54,7 @@ enum struct IROp {  // | op | label1 | label2 | res |
     SGE,            //   *     rs       rt      rd      <-- rd = (rs >= rt) ? 1 : 0
 
     LOAD_ARR,       //   *     arr      3        t1     <-- t1=a[3]
+    LOAD_ADDR,      //   *     arr      9        t1     <-- t1=a[3]  (int a[4][3]) 9=3*3+0
     STORE_ARR,      //   *     arr      3        t1     <-- a[3]=t1
 
     PRINTF,         //   *    content                   <-- transform to (printf content)
@@ -152,7 +153,7 @@ public:
 
     void addItemAssign(string& lvalue, string& rvalue);
 
-    string addItemLoadArray(string& array, string& offset);
+    string addItemLoadArray(string& array, string& offset, bool loadAddr);
     void addItemStoreArray(string& array, string& offset, string& ident);
 
     void addItemLoadRParam(string& rParam);

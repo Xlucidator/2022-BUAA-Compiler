@@ -36,6 +36,13 @@ private:
     stack<int> records; // enabled snapshot in record
     bool inrecord = false;
 
+    bool inMain = false;
+
+    string MAIN_STR = "main";
+    string RET_MAIN = "#main#";
+    string INT_STR = "int";
+    string NULL_STR = "";
+
     void snapshot() { // take a snapshot, from which each parseXX become virtual
         records.push(cnt);
         inrecord = !records.empty();

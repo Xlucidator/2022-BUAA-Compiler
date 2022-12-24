@@ -459,7 +459,7 @@ void Generator::genFuncCall() {
             // s_reg[i] = "";
         }
     }
-    for (int i = 0; i < TREG_SIZE-2; ++i) {
+    for (int i = 0; i < TREG_SIZE-3; ++i) {
         if (!t_reg[i].empty()) {
             // cout << t_reg[i] << endl;
             content = "$t" + to_string(i) + " " + to_string(sp_offset) + "($sp)";

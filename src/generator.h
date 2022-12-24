@@ -311,6 +311,49 @@ public:
 
         return tarReg;
     }
+    // Overload
+    string useNameFromReg(string& name, bool needValue, int chooseReg) {
+        /* return reg that is to use represent the name */
+        string tarReg;
+        if (isreg(name)) {
+            throw "cannot pass register as variable name";
+        }
+
+        if (isnumber(name)) {
+            // number, will always need value
+            if (name == "0") tarReg = "$0";
+            else {
+                string numReg = "$t" + to_string(chooseReg);
+                string inst = "li " + numReg + " " + name;
+                textSeg.emplace_back(inst);
+                tarReg = numReg;
+            }
+        } else if (constRecords.find(name) != constRecords.end()) {
+            // const value, will always need value
+            string value = constRecords[name];
+            if (value == "0") tarReg = "$0";
+            else {
+                string inst = "li $t9 " + value;
+                textSeg.emplace_back(inst);
+                tarReg = "$t9";
+            }
+        } else {
+            // variable
+            auto iter = records.find(name);
+            if (iter == records.end()) {
+                // record not exist -> alloc one
+                tarReg = initRegisterVar(name, "$fp", fp_offset);
+                fp_offset += 4;
+            } else {
+                // record exist
+                RecordItem item = records[name];
+                tarReg = item.reg;
+            }
+            clearConflict(name, tarReg, needValue);    // name: want to use tarReg
+        }
+
+        return tarReg;
+    }
 
     string useArrayFromBaseOff(string& name, string& index) {
         /* a[t] means: name - 'a'  index - 't' */
@@ -325,7 +368,7 @@ public:
                     int offset = 4 * stoi(index) + item.addr_off;
                     baseOff = to_string(offset) + "(" + item.base_reg + ")";
                 } else {                    // like [@t4]
-                    string base = useNameFromReg(index, true);
+                    string base = useNameFromReg(index, true, 7);
                     textSeg.emplace_back("sll $t8 " + base + " 2");
                     textSeg.emplace_back("add $t8 $t8 " + item.base_reg);
                     baseOff = to_string(item.addr_off) + "($t8)";
@@ -334,12 +377,12 @@ public:
 
             } else {    // pointer
 
-                string pointerReg = useNameFromReg(name, true);
+                string pointerReg = useNameFromReg(name, true, 7);
                 if (isnumber(index)) {
                     int offset = 4 * stoi(index);
                     baseOff = to_string(offset) + "(" + pointerReg + ")";
                 } else {
-                    string base = useNameFromReg(index, true);
+                    string base = useNameFromReg(index, true, 7);
                     textSeg.emplace_back("sll $t8 " + base + " 2");
                     textSeg.emplace_back("add $t8 $t8 " + pointerReg);
                     baseOff = "0($t8)";
@@ -354,9 +397,9 @@ public:
             string base;    // must be reg '$xx'
             if (isnumber(index)) {
                 string offset = to_string(4 * stoi(index));
-                base = useNameFromReg(offset, true);
+                base = useNameFromReg(offset, true, 7);
             } else {
-                base = useNameFromReg(index, true);
+                base = useNameFromReg(index, true, 7);
                 textSeg.emplace_back("sll $t8 " + base + " 2"); // << 2, means *4
                 base = "$t8";
             }
@@ -379,7 +422,7 @@ public:
             if (!item.is_pointer) { // $fp/$gp + offset
                 textSeg.emplace_back("add $t8 " + item.base_reg + " " + to_string(item.addr_off));
             } else {                // pointer
-                string pointerReg = useNameFromReg(name, true);
+                string pointerReg = useNameFromReg(name, true, 7);
                 textSeg.emplace_back("move $t8 " + pointerReg);
             }
 
@@ -395,13 +438,13 @@ public:
         string indexReg;
         if (isnumber(index)) {
             string indexOffset = to_string(4 * stoi(index));
-            indexReg = useNameFromReg(indexOffset, true);
+            indexReg = useNameFromReg(indexOffset, true, 7);
         } else {
             // index ident may always be @tx - tmp
             if (!istmp(index)) {
                 cout << "err may occur" << endl;
             }
-            indexReg = useNameFromReg(index, true);
+            indexReg = useNameFromReg(index, true, 7);
             textSeg.emplace_back("sll " + indexReg + " " + indexReg + " 2");
         }
 
@@ -433,8 +476,8 @@ public:
 
     string allocTmpReg(string& recordName) {
         /* select one reg that is not allocated */
-        // $t9 is for number, $t8 is for index*4 : -2
-        for (int reg_no = 0; reg_no < TREG_SIZE-2; ++reg_no) {
+        // $t9 is for number, $t8 is for index*4, $t7 is for baseOff-num : -3
+        for (int reg_no = 0; reg_no < TREG_SIZE-3; ++reg_no) {
             if (!t_map[reg_no]) {
                 t_map[reg_no] = true;
                 return "$t" + to_string(reg_no);
@@ -444,10 +487,13 @@ public:
         // TODO: select one reg that is not in use
         /* select in order */
         int reg_no = t_cnt;
-        t_cnt = (t_cnt + 1) % (TREG_SIZE-2);
+        t_cnt = (t_cnt + 1) % (TREG_SIZE-3);
         return "$t" + to_string(reg_no);
     }
+
 };
+
+
 
 
 inline IRItem Generator::nextIR() {

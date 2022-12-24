@@ -129,14 +129,6 @@ public:
         wordLabel.emplace(arrayName);
     }
 
-    void clearRecords() {
-        for (auto& record : records) {
-            if (record.second.base_reg != "$gp") {
-
-            }
-        }
-    }
-
     string initRegisterVar(string& name, string&& baseReg, int addrOff) {
         // return allocReg
         RecordItem newItem;
@@ -225,6 +217,16 @@ public:
                     saveBackToMemory(tarReg);
                 }
             }
+        }
+    }
+
+    void clearSRegFileAtEndOfBlock() {
+        // TRegFile need not, currently
+        for (int i = 0; i < SREG_SIZE; ++i) {
+            if (s_reg[i].empty())
+                continue;
+            string tarReg = "$s" + to_string(i);
+            saveBackToMemory(tarReg);
         }
     }
 

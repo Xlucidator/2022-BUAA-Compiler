@@ -49,6 +49,7 @@ void Generator::generating() {
         if (peek.op == IROp::DEF_CON) genConst();
         else genGlobalVar();
     }
+    clearSRegFileAtEndOfBlock();    // in case we forgot to store back
 
     textSeg.emplace_back("");
     textSeg.emplace_back("li $fp, 0x10040000");
@@ -212,6 +213,7 @@ void Generator::genLocalVar() {
 void Generator::genFuncDef() {
     /* peek.op == IROp::DEF_FUNC */
     resetFPOffset();    // switch to new function frame $fp
+    // since we have special $sp to store but didn't clear in the funCall
     resetRegFile();     // new function should always have clear context
     string funcName = peek.res;
     textSeg.push_back(funcName + ":");
@@ -234,7 +236,7 @@ void Generator::genFuncDef() {
     }
 
     if (funcName != "main") {
-        storeAllGlobalVarBack();
+        storeAllGlobalVarBack(); // end of a block (function): only globalVar need
         textSeg.emplace_back("jr $ra");
     }
     // cur op : DEF_END
@@ -301,7 +303,7 @@ void Generator::genStmt() {
             string rd = useNameFromReg(peek.res, USE_TO);
             string rs = useNameFromReg(peek.label1, USE_FROM);
             string rt = useName(peek.label2, USE_FROM);
-            inst = "div $0 " + rs + " " + rt;              // rd will get high-32bit of the res (HI)
+            inst = "div $0 " + rs + " " + rt;  // rd will get high-32bit of the res (HI)
             textSeg.emplace_back(inst);
             inst = "mfhi " + rd;
             textSeg.emplace_back(inst);
@@ -342,7 +344,7 @@ void Generator::genStmt() {
         }
         case IROp::RET: {
             if (peek.label1 != "#main#") {
-                storeAllGlobalVarBack(); // also need to store back before return
+                storeAllGlobalVarBack(); // end of a block (function): only globalVar need
                 if (!peek.label1.empty()) {
                     // has return value, move to $v0 for argument pass
                     string from = useNameFromReg(peek.label1, USE_FROM);
@@ -355,11 +357,16 @@ void Generator::genStmt() {
             break;
         }
         case IROp::LABEL: {
+            if (peek.res[0] == '$') {   // new block like '$if...',  '$while...'
+                // before the new block
+                clearSRegFileAtEndOfBlock();
+            }
             textSeg.emplace_back(peek.res + ":");
             nextIR();
             break;
         }
         case IROp::JUMP: {
+            clearSRegFileAtEndOfBlock(); // jump means the end of a block
             textSeg.emplace_back("j " + peek.res);
             nextIR();
             break;
@@ -380,6 +387,7 @@ void Generator::genStmt() {
         }
         case IROp::BEQ:
         case IROp::BNE: {
+            clearSRegFileAtEndOfBlock();    // branch means the end of a block
             string rs = useNameFromReg(peek.label1, USE_FROM);
             string rt = useName(peek.label2, USE_FROM);
             inst = IROp2String.at(peek.op) + " " + rs + " " + rt + " " + peek.res;

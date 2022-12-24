@@ -604,7 +604,8 @@ Param Parser::parseExp(string* OUT_symbol) {
     param = parseAddExp(GET_symbol);
     genOutput("<Exp>");
     if (OUT_symbol != nullptr) {
-        if (hasSign(GET_symbol)) {
+        if (!isnumber(GET_symbol) && hasSign(GET_symbol)) {
+            // not a number but still have sign '-'
             removeSign(GET_symbol);
             GET_symbol = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbol);
         }

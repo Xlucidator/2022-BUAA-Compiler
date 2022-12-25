@@ -42,6 +42,7 @@ private:
     string RET_MAIN = "#main#";
     string INT_STR = "int";
     string NULL_STR = "";
+    string ZERO_STR = "0";
 
     void snapshot() { // take a snapshot, from which each parseXX become virtual
         records.push(cnt);
@@ -166,7 +167,7 @@ inline Param Parser::parseAddExp(string& OUT_symbol) {
             GET_symbolBase = to_string(calculate(GET_symbolBase, GET_expOp, GET_symbolOther));
         } else {
             if (!isnumber(GET_symbolBase) && hasSign(GET_symbolBase)) {
-                // symbolBase is variable with '-', need to wrap it
+                // case: (-t) + 3, (-t) + t
                 removeSign(GET_symbolBase);
                 GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
             }
@@ -202,18 +203,24 @@ inline Param Parser::parseMulExp(string& OUT_symbol) {
         nextWord();
         parseUnaryExp(GET_symbolOther); // mergeParam is not necessary
         if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
+            /* case: 3 * -4 ==> -12 */
             GET_symbolBase = to_string(calculate(GET_symbolBase, GET_expOp, GET_symbolOther));
         } else {
-            if (hasSign(GET_symbolBase) && hasSign(GET_symbolOther)) { /* optimize: (-t)*(-t) ==> t*t */
+            if (hasSign(GET_symbolBase) && hasSign(GET_symbolOther)) {
+                /* case: (-t)*(-t), (-t) * -3 ==> t*t, t * 3 */
                 removeSign(GET_symbolBase);
                 removeSign(GET_symbolOther);
             } else if (!isnumber(GET_symbolBase) && hasSign(GET_symbolBase)) {
+                /* case: (-t) * 3 , (-t) * t */
                 removeSign(GET_symbolBase);
                 GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
             } else if (!isnumber(GET_symbolOther) && hasSign(GET_symbolOther)) {
+                /* case: 3 * (-t) , t * (-t) */
                 removeSign(GET_symbolOther);
                 GET_symbolOther = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolOther);
             }
+            /* number with sign is ok */
+            // finally, we need to mul/div
             GET_symbolBase = irBuilder.addItemCalculateExp(GET_expOp, GET_symbolBase, GET_symbolOther);
         }
         genOutput("<MulExp>");

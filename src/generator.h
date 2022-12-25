@@ -319,11 +319,11 @@ public:
             throw "cannot pass register as variable name";
         }
 
+        string numReg = "$t" + to_string(chooseReg);
         if (isnumber(name)) {
             // number, will always need value
             if (name == "0") tarReg = "$0";
             else {
-                string numReg = "$t" + to_string(chooseReg);
                 string inst = "li " + numReg + " " + name;
                 textSeg.emplace_back(inst);
                 tarReg = numReg;
@@ -333,9 +333,9 @@ public:
             string value = constRecords[name];
             if (value == "0") tarReg = "$0";
             else {
-                string inst = "li $t9 " + value;
+                string inst = "li " + numReg + " " + value;
                 textSeg.emplace_back(inst);
-                tarReg = "$t9";
+                tarReg = numReg;
             }
         } else {
             // variable

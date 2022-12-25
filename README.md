@@ -270,7 +270,29 @@ if () {
 
 **testfile30**：搞不懂
 
+---
 
+2021-B
+
+**testfile10**：虽然已经在parseExp中将symbol前可能的负号消去，但parseRel这一溜接的是parseAddExp，所以仍可能出现symbol前带符号，继续消去
+
+**testfile13**：应该就是测试点会导致溢出，本人全用的add和sub，这样方便（大概），不管了
+
+---
+
+2022-A
+
+**testfile10**：漏洞，我允许了单独的symbol直接接作为逻辑值，这在and指令中有漏洞：
+
+```
+and: 1 & 2 = 01 & 10 = 0	// 是0，但按逻辑本意是1
+```
+
+所以在parseLAndExp时，需要将非0的symbol转成1；在parseLOrExp中倒是不需要
+
+---
+
+2022-B
 
 ## 七. 代码优化设计 
 

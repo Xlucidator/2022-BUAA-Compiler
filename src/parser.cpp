@@ -490,9 +490,12 @@ void Parser::parseLOrExp(string& OUT_symbol) { // LAndExp { '||' LAndExp }
 }
 
 void Parser::parseLAndExp(string& OUT_symbol) { // EqExp { '&&' EqExp }
-    /* case: "1", "0", "@t1", "a" */
+    /* case: "1", "0", "@t1", "a", forgot "3" ... */
     string GET_symbolCond;
     string setFlag;
+
+    // throw this function, transmit all symbol to '0'/'1' or 'symbol that equals 0'
+    // we couldn't view '2' as '1', for in the cpu 2 & 1 = 10 & 01 = 0
 
     static int label_no = 0;
     string label_and_false = "$and_false" + to_string(label_no);
@@ -500,6 +503,15 @@ void Parser::parseLAndExp(string& OUT_symbol) { // EqExp { '&&' EqExp }
     label_no += 1;
 
     parseEqExp(GET_symbolCond);
+    if (GET_symbolCond != "1" && GET_symbolCond != "0") {
+        if (isnumber(GET_symbolCond)) {
+            GET_symbolCond = (stoi(GET_symbolCond) != 0) ? "1" : "0";
+        } else {
+            // set 1 on not equal zero; if equal zero, then it's fine
+            GET_symbolCond = irBuilder.addItemSetAfterCompare(IROp::SNE, GET_symbolCond, ZERO_STR);
+        }
+    }
+
     genOutput("<LAndExp>");
     if (peek.type != CatCode::AND) {    // only one EqExp
         OUT_symbol = GET_symbolCond;
@@ -515,6 +527,15 @@ void Parser::parseLAndExp(string& OUT_symbol) { // EqExp { '&&' EqExp }
     while (peek.type == CatCode::AND) {
         nextWord();
         parseEqExp(GET_symbolCond);
+        if (GET_symbolCond != "1" && GET_symbolCond != "0") {
+            if (isnumber(GET_symbolCond)) {
+                GET_symbolCond = (stoi(GET_symbolCond) != 0) ? "1" : "0";
+            } else {
+                // set 1 on not equal zero; if equal zero, then it's fine
+                GET_symbolCond = irBuilder.addItemSetAfterCompare(IROp::SNE, GET_symbolCond, ZERO_STR);
+            }
+        }
+
         if (peek.type != CatCode::AND) { // assure it's the last EqExp
             setFlag = irBuilder.addItemCalculateExp(IROp::AND, setFlag, GET_symbolCond);
         } else {
@@ -560,6 +581,7 @@ void Parser::parseEqExp(string& OUT_symbol) { // RelExp { ('==' | '!=') RelExp }
         }
         genOutput("<EqExp>");
     }
+
     OUT_symbol = GET_symbolBase;
 }
 
@@ -567,8 +589,13 @@ void Parser::parseRelExp(string& OUT_symbol) { // AddExp { ('<' | '>' | '<=' | '
     string GET_symbolBase;
     string GET_symbolOther;
     IROp GET_expOp;
+    /* through this function eliminate sign, but single symbol may still exists */
 
-    parseAddExp(GET_symbolBase);
+    parseAddExp(GET_symbolBase);  // it's not parseExp, so case that 'symbol with sign' is still exists
+    if (!isnumber(GET_symbolBase) && hasSign(GET_symbolBase)) {
+        removeSign(GET_symbolBase);
+        GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
+    }
     genOutput("<RelExp>");
 
     while (
@@ -580,6 +607,11 @@ void Parser::parseRelExp(string& OUT_symbol) { // AddExp { ('<' | '>' | '<=' | '
         GET_expOp = irBuilder.catCode2IROp.at(peek.type);
         nextWord();
         parseAddExp(GET_symbolOther);
+        if (!isnumber(GET_symbolOther) && hasSign(GET_symbolOther)) {
+            removeSign(GET_symbolOther);
+            GET_symbolOther = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolOther);
+        }
+
         if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
             if (GET_expOp == IROp::SLT) {
                 GET_symbolBase = (stoi(GET_symbolBase) < stoi(GET_symbolOther)) ? "1" : "0";
@@ -595,6 +627,7 @@ void Parser::parseRelExp(string& OUT_symbol) { // AddExp { ('<' | '>' | '<=' | '
         }
         genOutput("<RelExp>");
     }
+
     OUT_symbol = GET_symbolBase;
 }
 
@@ -723,7 +756,7 @@ Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [Fun
                 else
                     OUT_symbol = "-" + GET_symbol;
             } else if (GET_unaryOp == "!") {
-                if (isnumber(GET_symbol)) { // !3 -> 1
+                if (isnumber(GET_symbol)) { // !3 -> 0
                     OUT_symbol = stoi(GET_symbol) == 0 ? "1" : "0";
                 } else {    // !a , !@t2 , -!-!-a
                     if (hasSign(GET_symbol)) {  // case: ! -a

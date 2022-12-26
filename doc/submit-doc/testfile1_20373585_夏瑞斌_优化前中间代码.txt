@@ -1,0 +1,175 @@
+DEF_CON N int 1
+DEF_INIT N 10 0
+DEF_END N  
+
+DEF_VAR a array 10
+DEF_INIT a 0 0
+DEF_INIT a 1 1
+DEF_INIT a 2 2
+DEF_INIT a 3 3
+DEF_INIT a 4 4
+DEF_INIT a 5 5
+DEF_INIT a 6 6
+DEF_INIT a 7 7
+DEF_INIT a 8 8
+DEF_INIT a 9 9
+DEF_END a  
+
+DEF_FUN fib int 
+	FPARA i#1 int 0
+
+	LABEL $if_begin_4_0  
+	SEQ @t0 i#1 1
+	SNE @t0 @t0 0
+	BEQ $if_else_4_0 @t0 0
+	RET  1 
+
+	LABEL $if_else_4_0  
+
+	LABEL $if_end_4_0  
+
+	LABEL $if_begin_7_1  
+	SEQ @t0 i#1 2
+	SNE @t0 @t0 0
+	BEQ $if_else_7_1 @t0 0
+	RET  2 
+
+	LABEL $if_else_7_1  
+
+	LABEL $if_end_7_1  
+	MIN @t0 i#1 1
+	RPARA  @t0 
+	CALL_FUN  fib 
+	ADD @t0 RET 0
+	MIN @t1 i#1 2
+	RPARA  @t1 
+	CALL_FUN  fib 
+	ADD @t1 RET 0
+	ADD @t0 @t0 @t1
+	RET  @t0 
+DEF_END fib  
+
+DEF_FUN main int 
+	DEF_VAR i#4 int 1
+	DEF_INIT i#4 2 0
+	DEF_END i  
+	
+	DEF_VAR j#4 int 1
+	DEF_INIT j#4 5 0
+	DEF_END j  
+	
+	DEF_CON a1#4 int 1
+	DEF_INIT a1#4 1 0
+	DEF_END a1  
+	
+	DEF_CON a2#4 int 1
+	DEF_INIT a2#4 2 0
+	DEF_END a2  
+	
+	SCANF  @t0 
+	ADD i#4 @t0 0
+	SCANF  @t0 
+	ADD j#4 @t0 0
+	MUL @t0 i#4 j#4
+	RPARA  4 
+	CALL_FUN  fib 
+	ADD @t1 RET 0
+	MIN @t0 0 @t0
+	MUL @t0 @t0 @t1
+	ADD @t0 @t0 0
+	LOAD_ARR @t1 a[1]
+	MUL @t1 @t1 1
+	ADD @t0 @t0 @t1
+	MIN @t0 @t0 0
+	MUL @t0 @t0 5
+	ADD i#4 @t0 0
+	RPARA  5 
+	CALL_FUN  fib 
+	ADD @t0 RET 0
+	ADD @t0 @t0 2
+	RPARA  @t0 
+	CALL_FUN  fib 
+	ADD @t0 RET 0
+	MIN @t0 1197 @t0
+	MIN @t0 @t0 10091
+	ADD j#4 @t0 0
+	DEF_VAR k#4 int 1
+	DEF_INIT k#4 -6 0
+	DEF_END k  
+	
+
+	LABEL $while_begin_21_2  
+	SLE @t0 i#4 100
+	SNE @t0 @t0 0
+	BEQ $while_end_21_2 @t0 0
+	LOAD_ARR @t0 a[0]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[0]
+	LOAD_ARR @t0 a[1]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[1]
+	LOAD_ARR @t0 a[2]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[2]
+	LOAD_ARR @t0 a[3]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[3]
+	LOAD_ARR @t0 a[4]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[4]
+	LOAD_ARR @t0 a[5]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[5]
+	LOAD_ARR @t0 a[6]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[6]
+	LOAD_ARR @t0 a[7]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[7]
+	LOAD_ARR @t0 a[8]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[8]
+	LOAD_ARR @t0 a[9]
+	MUL @t1 k#4 k#4
+	ADD @t0 @t0 @t1
+	STORE_ARR @t0 a[9]
+	ADD @t0 i#4 1
+	ADD i#4 @t0 0
+	JUMP $while_begin_21_2  
+
+	LABEL $while_end_21_2  
+	ADD i#4 0 0
+
+	LABEL $while_begin_35_3  
+	SLT @t0 i#4 10
+	SNE @t0 @t0 0
+	BEQ $while_end_35_3 @t0 0
+	MUL @t0 i#4 1
+	ADD @t0 0 @t0
+	LOAD_ARR @t0 a[@t0]
+	PRINTF  @t0 
+	PRINTF  ", " 
+	ADD @t0 i#4 1
+	ADD i#4 @t0 0
+	JUMP $while_begin_35_3  
+
+	LABEL $while_end_35_3  
+	PRINTF  "\n" 
+	PRINTF  i#4 
+	PRINTF  ", " 
+	PRINTF  j#4 
+	PRINTF  ", " 
+	PRINTF  k#4 
+	PRINTF  "\n" 
+	RET  #main# 
+DEF_END main  
+

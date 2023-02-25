@@ -8,3 +8,5 @@ cmake-build-debug
 
 testfile.txt
 output.txt
+
+!test/*-test-*.zip

@@ -15,8 +15,8 @@ output_dst   = os.path.join(target_dir, "output.txt")
 
 test_dir = os.path.join(pwd, "2021-test-1201")  # 2022-test-1105
 test_dir = os.path.join(pwd, "2022-test-1105")
-tar_no = 23
-tar_level = 'A'
+tar_no = 25
+tar_level = 'C'
 root = os.path.join(test_dir, tar_level)
 
 print(test_dir)

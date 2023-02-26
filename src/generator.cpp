@@ -46,7 +46,7 @@ void Generator::printMIPS() {
 
 void Generator::generating() {
     while (peek.op == IROp::DEF_CON || peek.op == IROp::DEF_VAR) {
-        if (peek.op == IROp::DEF_CON) genConst();
+        if (peek.op == IROp::DEF_CON) genGlobalConst();
         else genGlobalVar();
     }
     clearSRegFileAtEndOfBlock();    // in case we forgot to store back
@@ -63,7 +63,7 @@ void Generator::generating() {
     // cout << "finish generation" << endl;
 }
 
-void Generator::genConst() {
+void Generator::genGlobalConst() {
     /* peek.op == IROp::DEF_CON */
     string constName = peek.res;
     if (peek.label1 != "array") {   // not an array (a[0]?, a[1])

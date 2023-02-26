@@ -97,7 +97,7 @@ public:
     void generating();
 
     /* generate part */
-    void genConst();
+    void genGlobalConst();
     void genLocalConst();
     void genGlobalVar();
     void genLocalVar();

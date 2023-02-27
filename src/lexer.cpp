@@ -46,7 +46,7 @@ void printWordList() {
 
 void fprintWordList() {
     ofstream ofs;
-    ofs.open("output-lexer.txt", ios::out);
+    ofs.open("words.txt", ios::out);
     if (ofs.fail()) {
         cerr << "failed to write!" << endl;
         return;

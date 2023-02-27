@@ -22,7 +22,7 @@ if not os.path.exists(mars_path):
 test_dir = os.path.join(pwd, "2021-test-1201")  # 2022-test-1105
 test_dir = os.path.join(pwd, "2022-test-1105")
 tar_no = 2
-tar_level = 'A'
+tar_level = 'C'
 root = os.path.join(test_dir, tar_level)
 
 print('dataset:', os.path.split(test_dir)[1])

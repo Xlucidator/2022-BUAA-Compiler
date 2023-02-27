@@ -41,6 +41,7 @@ enum struct CatCode {
     MULT,
     DIV,
     MOD,
+    BIT_AND,
     LSS,
     LEQ,
     GRE,

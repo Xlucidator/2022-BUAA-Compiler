@@ -85,6 +85,7 @@ string getTypeStr(CatCode type) {
         case CatCode::MULT        : return "MULT"      ;
         case CatCode::DIV         : return "DIV"       ;
         case CatCode::MOD         : return "MOD"       ;
+        case CatCode::BIT_AND     : return "BIT_AND"   ;
         case CatCode::LSS         : return "LSS"       ;
         case CatCode::LEQ         : return "LEQ"       ;
         case CatCode::GRE         : return "GRE"       ;
@@ -127,7 +128,7 @@ void Lexer::lexing() {
         // cout << "get something:" << gettoken << endl;
         if (!gettoken.empty()) {
             word.cont = gettoken;
-            word.type = getWordType(gettoken);
+            word.type = getWordType(gettoken);  // get CatCode
             word.lno = lno;
             wordList.push_back(word);
         }
@@ -233,6 +234,7 @@ string Lexer::nextToken() {
 }
 
 CatCode Lexer::getWordType(string& token) {
+    // no need to change, will try to find token in token2Catcode first
     if (token2Catcode.find(token) != token2Catcode.end()) {
         return token2Catcode.at(token);
     }

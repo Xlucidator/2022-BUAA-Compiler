@@ -38,6 +38,7 @@ enum struct IROp {  // | op | label1 | label2 | res |
     MUL,            //   *     rs       rt      rd      <-- rd = rs * rt
     DIV,            //   *     rs       rt      rd      <-- rd = rs / rt
     MOD,            //   *     rs       rt      rd      <-- rd = rs % rt
+    BITAND,         //   *                              <-- rd = rs & rt 其实和下面的AND一样
     AND,            //   *     rs       rt      rd      <-- rd = rs && rt
     OR ,            //   *     rs       rt      rd      <-- rd = rs || rt
 
@@ -126,12 +127,14 @@ private:
 
 public:
     int inEffect = true;
+    // translate directly
     const map<CatCode, IROp> catCode2IROp = {
             {CatCode::PLUS  , IROp::ADD },
             {CatCode::MINU  , IROp::MIN },
             {CatCode::MULT  , IROp::MUL },
             {CatCode::DIV   , IROp::DIV },
             {CatCode::MOD   , IROp::MOD },
+            {CatCode::BIT_AND, IROp::BITAND },
             {CatCode::EQL   , IROp::SEQ },
             {CatCode::NEQ   , IROp::SNE },
             {CatCode::LSS   , IROp::SLT },

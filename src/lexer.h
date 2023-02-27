@@ -60,6 +60,7 @@ public:
             {"*"  , CatCode::MULT    },
             {"/"  , CatCode::DIV     },
             {"%"  , CatCode::MOD     },
+            {"bitand"  , CatCode::BIT_AND    },
             {";"  , CatCode::SEMICN  },
             {","  , CatCode::COMMA   },
             {"("  , CatCode::L_PARENT},

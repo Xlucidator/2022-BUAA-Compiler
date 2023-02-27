@@ -1034,8 +1034,16 @@ void Parser::parseVarDef() { // Ident { '[' ConstExp ']' } | Ident { '[' ConstEx
     int indexSize = accumulate(PUT_dims.begin(), PUT_dims.end(), 1, multiplies<int>());
     irBuilder.addItemDef(IROp::DEF_VAR, to_string(indexSize), PUT_ident, !PUT_dims.empty());
 
+    string symbolInitVal;
     if (peek.type == CatCode::ASSIGN) { // ... '=' InitVal
         nextWord();
+        if (peek.type == CatCode::GETINT_TK) {
+            symbolInitVal = irBuilder.addItemScanf();
+            nextWord(); // peek = '('
+            nextWord(); // peek = ')'
+            nextWord(); // peek = others (',' ';' ...)
+            irBuilder.addItemAssign(PUT_ident, symbolInitVal);
+        } else
         parseInitVal(PUT_ident, PUT_dims, 0);
     }
 

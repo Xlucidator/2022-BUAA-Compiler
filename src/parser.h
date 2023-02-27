@@ -185,7 +185,7 @@ inline Param Parser::parseAddExp(string& OUT_symbol) {
 }
 
 inline Param Parser::parseMulExp(string& OUT_symbol) {
-    // UnaryExp { ('*' | '/' | '%') UnaryExp }
+    // UnaryExp { ('*' | '/' | '%' | 'bitand') UnaryExp }
     string GET_symbolBase;
     string GET_symbolOther;
     IROp GET_expOp;
@@ -197,28 +197,42 @@ inline Param Parser::parseMulExp(string& OUT_symbol) {
     while (
             peek.type == CatCode::MULT ||
             peek.type == CatCode::DIV  ||
-            peek.type == CatCode::MOD
+            peek.type == CatCode::MOD  ||
+            peek.type == CatCode::BIT_AND
             ) {
         GET_expOp = irBuilder.catCode2IROp.at(peek.type);
         nextWord();
         parseUnaryExp(GET_symbolOther); // mergeParam is not necessary
+        // 根据GET_symbolBase和GET_symbolOther这两操作数情况，分类讨论
         if (isnumber(GET_symbolBase) && isnumber(GET_symbolOther)) {
             /* case: 3 * -4 ==> -12 */
             GET_symbolBase = to_string(calculate(GET_symbolBase, GET_expOp, GET_symbolOther));
         } else {
-            if (hasSign(GET_symbolBase) && hasSign(GET_symbolOther)) {
-                /* case: (-t)*(-t), (-t) * -3 ==> t*t, t * 3 */
-                removeSign(GET_symbolBase);
-                removeSign(GET_symbolOther);
-            } else if (!isnumber(GET_symbolBase) && hasSign(GET_symbolBase)) {
-                /* case: (-t) * 3 , (-t) * t */
-                removeSign(GET_symbolBase);
-                GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
-            } else if (!isnumber(GET_symbolOther) && hasSign(GET_symbolOther)) {
-                /* case: 3 * (-t) , t * (-t) */
-                removeSign(GET_symbolOther);
-                GET_symbolOther = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolOther);
+            if (GET_expOp == IROp::BITAND) {
+                if (hasSign(GET_symbolBase)) {
+                    removeSign(GET_symbolBase);
+                    GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
+                }
+                if (hasSign(GET_symbolOther)) {
+                    removeSign(GET_symbolOther);
+                    GET_symbolOther = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolOther);
+                }
+            } else {
+                if (hasSign(GET_symbolBase) && hasSign(GET_symbolOther)) {
+                    /* case: (-t)*(-t), (-t) * -3 ==> t*t, t * 3 */
+                    removeSign(GET_symbolBase);
+                    removeSign(GET_symbolOther);
+                } else if (!isnumber(GET_symbolBase) && hasSign(GET_symbolBase)) {
+                    /* case: (-t) * 3 , (-t) * t */
+                    removeSign(GET_symbolBase);
+                    GET_symbolBase = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolBase);
+                } else if (!isnumber(GET_symbolOther) && hasSign(GET_symbolOther)) {
+                    /* case: 3 * (-t) , t * (-t) */
+                    removeSign(GET_symbolOther);
+                    GET_symbolOther = irBuilder.addItemCalculateExp(IROp::MIN, "0", GET_symbolOther);
+                }
             }
+
             /* number with sign is ok */
             // finally, we need to mul/div
             GET_symbolBase = irBuilder.addItemCalculateExp(GET_expOp, GET_symbolBase, GET_symbolOther);

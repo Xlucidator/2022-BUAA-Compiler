@@ -41,6 +41,7 @@ string IROpToString(IROp op) {
         case IROp::MUL      : return "MUL"      ;
         case IROp::DIV      : return "DIV"      ;
         case IROp::MOD      : return "MOD"      ;
+        case IROp::BITAND   : return "BITAND"   ;
         case IROp::AND      : return "AND"      ;
         case IROp::OR       : return "OR"       ;
 

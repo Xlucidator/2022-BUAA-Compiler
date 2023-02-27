@@ -31,6 +31,7 @@ int calculate(std::string& num1, IROp op, std::string& num2) {
         case IROp::MUL: res = stoi(num1) * stoi(num2); break;
         case IROp::DIV: res = stoi(num1) / stoi(num2); break;
         case IROp::MOD: res = stoi(num1) % stoi(num2); break;
+        case IROp::BITAND: res = stoi(num1) & stoi(num2); break;
         default: ;
     }
     return res;

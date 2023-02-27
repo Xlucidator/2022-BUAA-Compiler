@@ -45,7 +45,7 @@ void doSyntaxAnalysis() {
 /*========================= class Parser =========================*/
 Parser::Parser(vector<Word> &w): wordsList(w), cnt(1), peek(w[0]) {
     if (isprint) {
-        ofs.open("output.txt", ios::out);
+        ofs.open("sentences.txt", ios::out);
         if (ofs.fail()) {
             cerr << "failed to write!" << endl;
             return;

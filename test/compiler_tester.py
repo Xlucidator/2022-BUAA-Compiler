@@ -14,7 +14,7 @@ testfile_dst = os.path.join(target_dir, "testfile.txt")
 input_dst    = os.path.join(target_dir, "input.txt")
 output_dst   = os.path.join(target_dir, "output.txt")
 
-
+print("data-set:", os.path.split(test_dir)[1])
 for root, dirs, files in os.walk(test_dir):
     if len(dirs) != 0:  # 去除根目录
         continue
@@ -33,7 +33,7 @@ for root, dirs, files in os.walk(test_dir):
         os.system('echo f | xcopy /y ' + testfile_src + ' ' + testfile_dst + ' > log.txt')
         os.system('echo f | xcopy /y ' + input_src    + ' ' + input_dst    + ' > log.txt')
         os.system('echo f | xcopy /y ' + output_src   + ' ' + output_dst   + ' > log.txt')
-        
+
         # 在cmake-build-debug目录下运行Compiler.exe，得到mips.txt
         subprocess.run(compile_path, cwd=target_dir, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 

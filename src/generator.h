@@ -316,8 +316,8 @@ public:
             auto iter = records.find(name);
             if (iter == records.end()) {
                 // record not exist -> alloc one
-                tarReg = initRegisterVar(name, "$fp", fp_offset);
-                fp_offset += 4;
+                // indeed, variable should all have been init, so not exist may only happened to @tx
+                tarReg = istmp(name) ? initGlobalVar(name) : initLocalVar(name);
             } else {
                 // record exist
                 RecordItem item = records[name];

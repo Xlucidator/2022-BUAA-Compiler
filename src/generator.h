@@ -120,6 +120,23 @@ public:
             reg = "";
     }
 
+    /* print variables table - map<,> records */
+    void listRecords() {
+        cout << "------------------------------------------------------------\n";
+        printf("| %10s | %8s | %10s | %10s | %6s |\n",
+                "name", "bind-reg", "addr base", "addr off", "is ptr");
+        cout << "------------------------------------------------------------\n";
+        for (auto& record : records) {
+            printf("| %10s | %8s | %10s | %10d | %6d |\n",
+                   record.first.c_str(),
+                   record.second.reg.c_str(),
+                   record.second.base_reg.c_str(),
+                   record.second.addr_off,
+                   record.second.is_pointer);
+        }
+        cout << "------------------------------------------------------------\n";
+    }
+
     void addConstValue(string& name, string& value) {
         // TODO: const name will be different
         constRecords[name] = value;

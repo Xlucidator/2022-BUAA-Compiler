@@ -17,6 +17,8 @@ void doMipsGeneration() {
     generator.generating();
 
     generator.printMIPS();
+
+    generator.listRecords();
 }
 
 

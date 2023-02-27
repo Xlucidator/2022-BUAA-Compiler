@@ -5,7 +5,6 @@ pwd = os.getcwd()
 
 target_dir = os.path.join(pwd, '..\\cmake-build-debug')
 
-
 compile_path = os.path.join(target_dir, 'Compiler.exe')
 mips_path    = os.path.join(target_dir, 'mips.txt')
 
@@ -13,13 +12,20 @@ testfile_dst = os.path.join(target_dir, "testfile.txt")
 input_dst    = os.path.join(target_dir, "input.txt")
 output_dst   = os.path.join(target_dir, "output.txt")
 
+# 检测cmake-build-debug下是否有Mars
+mars_path = os.path.join(target_dir, 'Mars4Compiler.jar')
+if not os.path.exists(mars_path):
+    print('Cannot find Mars: copy one')
+    os.system('xcopy /y Mars4Compiler.jar ..\\cmake-build-debug\\')
+
+# 打印基本测试信息
 test_dir = os.path.join(pwd, "2021-test-1201")  # 2022-test-1105
 test_dir = os.path.join(pwd, "2022-test-1105")
 tar_no = 2
 tar_level = 'A'
 root = os.path.join(test_dir, tar_level)
 
-print(test_dir)
+print('dataset:', os.path.split(test_dir)[1])
 print('level:', tar_level)
 print('testfile', tar_no)
 print('============================')
@@ -34,6 +40,7 @@ os.system('echo f | xcopy /y ' + output_src   + ' ' + output_dst   + ' > log.txt
 
 # 在cmake-build-debug目录下运行Compiler.exe，得到mips.txt
 subprocess.run(compile_path, cwd=target_dir, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+## TODO: 新环境下，好像有没更新的情况，需要Clion运行一遍
 
 # 利用mars输入测试input.txt并得到结果
 fin = open(input_dst, mode='r')
@@ -55,8 +62,8 @@ print('-------------------')
 ans_list = ans.replace('\r\n', '\n').split('\n')
 fcheck.close()
 line_num = min(len(ans_list), len(res_list))
-# if len(ans_list) != len(res_list):
-#     print('[warning] line num different! ans-res :', str(len(ans_list)) + '-' + str(len(res_list)), end=' ')
+if len(ans_list) != len(res_list):
+    print('[warning] line num different! ans-res :', str(len(ans_list)) + '-' + str(len(res_list)))
 wrong_line = []
 flag = True
 for lno in range(line_num):

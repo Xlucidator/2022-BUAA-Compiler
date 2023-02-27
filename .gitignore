@@ -10,7 +10,6 @@ testfile.txt
 output.txt
 
 !test/*-test-*.zip
-
 test/log.txt
 
 # word

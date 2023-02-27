@@ -14,6 +14,12 @@ testfile_dst = os.path.join(target_dir, "testfile.txt")
 input_dst    = os.path.join(target_dir, "input.txt")
 output_dst   = os.path.join(target_dir, "output.txt")
 
+# 检测cmake-build-debug下是否有Mars
+mars_path = os.path.join(target_dir, 'Mars4Compiler.jar')
+if not os.path.exists(mars_path):
+    print('Cannot find Mars: copy one')
+    os.system('xcopy /y Mars4Compiler.jar ..\\cmake-build-debug\\')
+
 print("data-set:", os.path.split(test_dir)[1])
 for root, dirs, files in os.walk(test_dir):
     if len(dirs) != 0:  # 去除根目录
@@ -49,8 +55,8 @@ for root, dirs, files in os.walk(test_dir):
         ans_list = fcheck.read().replace('\r\n', '\n').split('\n')
         fcheck.close()
         line_num = min(len(ans_list), len(res_list))
-        # if len(ans_list) != len(res_list):
-        #     print('[warning] line num different! ans-res :', str(len(ans_list)) + '-' + str(len(res_list)), end=' ')
+        if abs(len(ans_list) - len(res_list)) > 1:
+            print('[warning] line num diff too much! ans-res :', str(len(ans_list)) + '-' + str(len(res_list)), end=' ')
         wrong_line = []
         flag = True
         for lno in range(line_num):

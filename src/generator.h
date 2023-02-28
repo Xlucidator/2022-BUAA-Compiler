@@ -76,6 +76,8 @@ public:
             {IROp::MIN, "sub"},
             {IROp::MUL, "mul"},
             {IROp::DIV, "div"},
+            {IROp::AND, "and"},
+            {IROp::OR , "or" },
 
             {IROp::SEQ, "seq"},
             {IROp::SNE, "sne"},

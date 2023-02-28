@@ -8,8 +8,6 @@
 
 using namespace std;
 
-#define USE_FROM true   // needValue = true, where the value comes from
-#define USE_TO false    // needValue = false, where the value comes to
 
 void doMipsGeneration() {
 
@@ -274,6 +272,7 @@ void Generator::genStmt() {
             string rd = useNameFromReg(peek.res, USE_TO);
             string rs = useNameFromReg(peek.label1, USE_FROM);
             string rt = useName(peek.label2, USE_FROM);
+            bufferRegConflict(rs, rt);
             inst = IROp2String.at(peek.op) + " " + rd + " " + rs + " " + rt;
             textSeg.emplace_back(inst);
             nextIR();
@@ -283,6 +282,7 @@ void Generator::genStmt() {
             string rd = useNameFromReg(peek.res, USE_TO);
             string rs = useNameFromReg(peek.label1, USE_FROM);
             string rt = useName(peek.label2, USE_FROM);
+            bufferRegConflict(rs, rt);
             inst = "div $0 " + rs + " " + rt;  // rd will get high-32bit of the res (HI)
             textSeg.emplace_back(inst);
             inst = "mfhi " + rd;
@@ -342,6 +342,7 @@ void Generator::genStmt() {
             string rd = useNameFromReg(peek.res, USE_TO);
             string rs = useNameFromReg(peek.label1, USE_FROM);
             string rt = useNameFromReg(peek.label2, USE_FROM);
+            bufferRegConflict(rs, rt);
             inst = IROp2String.at(peek.op) + " " + rd + " " + rs + " " + rt;
             textSeg.emplace_back(inst);
             nextIR();
@@ -352,6 +353,7 @@ void Generator::genStmt() {
             clearSRegFileAtEndOfBlock();    // branch means the end of a block
             string rs = useNameFromReg(peek.label1, USE_FROM);
             string rt = useName(peek.label2, USE_FROM);
+            bufferRegConflict(rs, rt);
             inst = IROp2String.at(peek.op) + " " + rs + " " + rt + " " + peek.res;
             textSeg.emplace_back(inst);
             nextIR();

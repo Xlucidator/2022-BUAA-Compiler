@@ -22,6 +22,9 @@ using namespace std;
 #define SREG_SIZE (8)
 #define TREG_SIZE (10)
 
+#define USE_FROM true   // needValue = true, where the value comes from
+#define USE_TO false    // needValue = false, where the value comes to
+
 void doMipsGeneration();
 
 
@@ -273,6 +276,16 @@ public:
             } // or we simply regard the same reg as a new record (do not care what the value is)
 
             regs[tarRecordNo] = tarRecordName;
+        }
+    }
+
+    // 解决两个分配了相同寄存器的不同变量同时使用的问题
+    void bufferRegConflict(string& rs, string& rt) {
+        if (isreg(rt) && rs == rt && peek.label1 != peek.label2) {
+            // reg conflict! use $a3 for transition
+            textSeg.emplace_back("move $a3 " + rt);
+            rt = "$a3";
+            rs = useNameFromReg(peek.label1, USE_FROM); // load again: waste a lot of time
         }
     }
 

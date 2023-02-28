@@ -31,7 +31,7 @@ void doSyntaxAnalysis() {
     SymbolTable globalTable;
     curContext = &globalTable;
 
-    Parser parser(wordList);
+    Parser parser(wordList2);
     try {
         parser.parseCompUnit();
     } catch (string& err_str) {
@@ -847,6 +847,9 @@ Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [Fun
             }
             break;
 
+        // Bool
+        case CatCode::FALSE_TK:
+        case CatCode::TRUE_TK:
         case CatCode::L_PARENT:
         case CatCode::INT_CON : {
             string GET_symbol;
@@ -863,7 +866,8 @@ Param Parser::parseUnaryExp(string& OUT_symbol) { // PrimaryExp | Ident '(' [Fun
     return param;
 }
 
-Param Parser::parsePrimaryExp(string& OUT_symbol) { // '(' Exp ')' | LVal | Number
+Param Parser::parsePrimaryExp(string& OUT_symbol) {
+    // '(' Exp ')' | LVal | Number | Bool
     Param param;
 
     switch (peek.type) {
@@ -889,6 +893,17 @@ Param Parser::parsePrimaryExp(string& OUT_symbol) { // '(' Exp ')' | LVal | Numb
             parseNumber(GET_number);
 
             OUT_symbol = GET_number;
+            break;
+        }
+        // Bool
+        case CatCode::TRUE_TK : {
+            OUT_symbol = "1";
+            nextWord();
+            break;
+        }
+        case CatCode::FALSE_TK: {
+            OUT_symbol = "0";
+            nextWord();
             break;
         }
 

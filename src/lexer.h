@@ -25,9 +25,9 @@ using namespace std;
 
 
 void doLexicalAnalysis();
+void addMacroFunction();
 void printWordList();
 void fprintWordList();
-
 
 class Lexer {
 
@@ -55,6 +55,9 @@ public:
             {"printf"  , CatCode::PRINTF_TK  },
             {"return"  , CatCode::RETURN_TK  },
             {"void"    , CatCode::VOID_TK    },
+            {"true"    , CatCode::TRUE_TK    },
+            {"false"   , CatCode::FALSE_TK   },
+            //{"max"     , CatCode::MAX_TK     },
             {"+"  , CatCode::PLUS    },
             {"-"  , CatCode::MINU    },
             {"*"  , CatCode::MULT    },
@@ -131,8 +134,10 @@ struct Word {
     int lno;
     Word(): type(), cont() {}
     explicit Word(CatCode c): type(c), cont() {}
+    Word(CatCode c, string ct): type(c), cont(ct), lno(0) {}
 };
 
 extern vector<Word> wordList;
+extern vector<Word> wordList2;
 
 #endif //COMPILER_LEXER_H

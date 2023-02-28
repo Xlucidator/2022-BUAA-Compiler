@@ -36,6 +36,10 @@ enum struct CatCode {
     AND,
     OR,
 
+    TRUE_TK,
+    FALSE_TK,
+    MAX_TK,
+
     PLUS,
     MINU,
     MULT,

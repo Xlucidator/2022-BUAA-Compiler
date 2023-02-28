@@ -13,7 +13,9 @@
 using namespace std;
 
 vector<Word> wordList;
+vector<Word> wordList2;
 bool Lexer::isprint = LEXER_PRINT;
+
 
 void doLexicalAnalysis() {
     ifstream ifs;
@@ -33,8 +35,60 @@ void doLexicalAnalysis() {
 
     ifs.close();
 
+    addMacroFunction();
+
     if (Lexer::isprint)
         fprintWordList();
+}
+
+void addMacroFunction() {
+    int i = 0;
+    for (i = 0; i < wordList.size(); ++i) {
+        if (wordList[i].type == CatCode::INT_TK &&
+            wordList[i+1].type == CatCode::MAIN_TK) {
+            break;
+        }
+        wordList2.push_back(wordList[i]);
+    }
+    wordList2.emplace_back(Word(CatCode::INT_TK, "int")  );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "max") );
+    wordList2.emplace_back(Word(CatCode::L_PARENT, "(")  );
+    wordList2.emplace_back(Word(CatCode::INT_TK, "int")  );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "p1")  );
+    wordList2.emplace_back(Word(CatCode::COMMA, ",")    );
+    wordList2.emplace_back(Word(CatCode::INT_TK, "int")  );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "p2")  );
+    wordList2.emplace_back(Word(CatCode::R_PARENT, ")")  );
+    wordList2.emplace_back(Word(CatCode::L_BRACE, "{")   );
+    wordList2.emplace_back(Word(CatCode::INT_TK, "int")  );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "res") );
+    wordList2.emplace_back(Word(CatCode::SEMICN, ";")   );
+    wordList2.emplace_back(Word(CatCode::IF_TK, "if")    );
+    wordList2.emplace_back(Word(CatCode::L_PARENT, "(")  );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "p1")  );
+    wordList2.emplace_back(Word(CatCode::GRE, ">")      );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "p2")  );
+    wordList2.emplace_back(Word(CatCode::R_PARENT, ")")  );
+    wordList2.emplace_back(Word(CatCode::L_BRACE, "{")   );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "res") );
+    wordList2.emplace_back(Word(CatCode::ASSIGN, "=")   );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "p1")  );
+    wordList2.emplace_back(Word(CatCode::SEMICN, ";")   );
+    wordList2.emplace_back(Word(CatCode::R_BRACE, "}")   );
+    wordList2.emplace_back(Word(CatCode::ELSE_TK, "else"));
+    wordList2.emplace_back(Word(CatCode::L_BRACE, "{")   );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "res") );
+    wordList2.emplace_back(Word(CatCode::ASSIGN, "=")   );
+    wordList2.emplace_back(Word(CatCode::IDENFR, "p2")  );
+    wordList2.emplace_back(Word(CatCode::SEMICN, ";")   );
+    wordList2.emplace_back(Word(CatCode::R_BRACE, "}")   );
+    wordList2.emplace_back(Word(CatCode::RETURN_TK, "return"));
+    wordList2.emplace_back(Word(CatCode::IDENFR, "res"));
+    wordList2.emplace_back(Word(CatCode::SEMICN, ";"));
+    wordList2.emplace_back(Word(CatCode::R_BRACE, "}"));
+    for (; i < wordList.size(); ++i) {
+        wordList2.push_back(wordList[i]);
+    }
 }
 
 
@@ -100,6 +154,9 @@ string getTypeStr(CatCode type) {
         case CatCode::R_BRACK     : return "RBRACK"    ;
         case CatCode::L_BRACE     : return "LBRACE"    ;
         case CatCode::R_BRACE     : return "RBRACE"    ;
+        case CatCode::TRUE_TK     : return "TRUETK"    ;
+        case CatCode::FALSE_TK    : return "FALSETK"   ;
+        case CatCode::MAX_TK      : return "MAXTK"     ;
         default: return "";
     }
 }

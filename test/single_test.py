@@ -40,7 +40,6 @@ os.system('echo f | xcopy /y ' + output_src   + ' ' + output_dst   + ' > log.txt
 
 # 在cmake-build-debug目录下运行Compiler.exe，得到mips.txt
 subprocess.run(compile_path, cwd=target_dir, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-## TODO: 新环境下，好像有没更新的情况，需要Clion运行一遍
 
 # 利用mars输入测试input.txt并得到结果
 fin = open(input_dst, mode='r')

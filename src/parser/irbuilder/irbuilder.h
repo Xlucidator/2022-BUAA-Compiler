@@ -12,8 +12,8 @@
 #include <fstream>
 #include <iostream>
 
-#include "catcode.h"
-#include "settings.h"
+#include "../../lexer/catcode.h"
+#include "../../settings.h"
 
 using namespace std;
 

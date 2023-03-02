@@ -7,7 +7,7 @@
 
 
 #include "catcode.h"
-#include "settings.h"
+#include "../settings.h"
 
 #include <string>
 #include <iostream>

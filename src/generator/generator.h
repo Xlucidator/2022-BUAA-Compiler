@@ -13,9 +13,9 @@
 #include <set>
 #include <string>
 
-#include "irbuilder.h"
-#include "tools.h"
-#include "settings.h"
+#include "../parser/irbuilder/irbuilder.h"
+#include "../tool/tools.h"
+#include "../settings.h"
 
 using namespace std;
 

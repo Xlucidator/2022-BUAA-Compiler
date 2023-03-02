@@ -5,9 +5,9 @@
 #ifndef COMPILER_SYMBOL_H
 #define COMPILER_SYMBOL_H
 
-#include "lexer.h"
-#include "errcode.h"
-#include "catcode.h"
+#include "../lexer/lexer.h"
+#include "errorhandler/errcode.h"
+#include "../lexer/catcode.h"
 #include <string>
 #include <vector>
 #include <map>

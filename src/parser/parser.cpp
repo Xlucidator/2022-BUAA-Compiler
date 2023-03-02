@@ -2,12 +2,12 @@
 // Created by Excalibur on 2022/9/20.
 //
 
-#include "tools.h"
+#include "../tool/tools.h"
 #include "parser.h"
-#include "catcode.h"
+#include "../lexer/catcode.h"
 #include "symbol.h"
-#include "errcode.h"
-#include "irbuilder.h"
+#include "errorhandler/errcode.h"
+#include "irbuilder/irbuilder.h"
 
 #include <set>
 #include <vector>

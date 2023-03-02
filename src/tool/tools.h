@@ -7,8 +7,8 @@
 
 #include <string>
 #include <vector>
-#include "symbol.h"
-#include "irbuilder.h"
+#include "../parser/symbol.h"
+#include "../parser/irbuilder/irbuilder.h"
 
 /* Usage:
  * str = "%dabcd%d%d efg%d"

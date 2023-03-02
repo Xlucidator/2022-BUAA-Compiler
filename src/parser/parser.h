@@ -11,12 +11,12 @@
 #include <fstream>
 #include <string>
 
-#include "tools.h"
-#include "lexer.h"
+#include "../tool/tools.h"
+#include "../lexer/lexer.h"
 #include "symbol.h"
-#include "errcode.h"
-#include "irbuilder.h"
-#include "settings.h"
+#include "errorhandler/errcode.h"
+#include "irbuilder/irbuilder.h"
+#include "../settings.h"
 
 
 using namespace std;

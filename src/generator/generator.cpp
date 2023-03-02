@@ -3,7 +3,7 @@
 //
 
 #include "generator.h"
-#include "irbuilder.h"
+#include "../parser/irbuilder/irbuilder.h"
 #include <vector>
 
 using namespace std;

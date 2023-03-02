@@ -3,7 +3,7 @@
 //
 
 #include "irbuilder.h"
-#include "tools.h"
+#include "../../tool/tools.h"
 
 #include <vector>
 #include <string>

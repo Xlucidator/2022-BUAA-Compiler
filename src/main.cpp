@@ -4,9 +4,9 @@
 #include <iostream>
 #include <fstream>
 #include <cstdio>
-#include "lexer.h"
-#include "parser.h"
-#include "generator.h"
+#include "lexer/lexer.h"
+#include "parser/parser.h"
+#include "generator/generator.h"
 
 using namespace std;
 
